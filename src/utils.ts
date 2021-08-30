@@ -27,7 +27,7 @@ export function mixGeneratedCode(codeArr: Array<IGeneratedCode>) {
   `;
 }
 
-export function writeFile(filepath: string, contents: string) {
+export function writeFile(filepath: string, contents: string): Promise<void> {
   return new Promise((resolve, reject) => {
     mkdirp(path.dirname(filepath), function(err) {
       if (err) return reject(`filepath: ${filepath}, ${err}`);
@@ -39,7 +39,7 @@ export function writeFile(filepath: string, contents: string) {
   });
 }
 
-export function moveFile(from: string, to: string) {
+export function moveFile(from: string, to: string): Promise<void>  {
   return new Promise((resolve, reject) => {
     mkdirp(path.dirname(to), function(err) {
       if (err) return reject(`读取文件失败: ${from}, ${err}`);

@@ -3,6 +3,7 @@ import { format } from 'json-schema-to-typescript/dist/src/formatter';
 import { DEFAULT_OPTIONS } from 'json-schema-to-typescript';
 import {
   Intf,
+  IModules,
   IUrlMapper,
   RAPPER_TYPE,
   TRAILING_COMMA,
@@ -20,11 +21,12 @@ import {
   templateFilesRelyConfirm,
   latestVersion,
 } from './utils';
-import { getInterfaces, getIntfWithModelName, uniqueItfs, creatHeadHelpStr } from './core/tools';
+import { getInterfaces, getModules, uniqueItfs, creatHeadHelpStr } from './core/tools';
 import { findDeleteFiles, findChangeFiles, findRapperVersion } from './core/scanFile';
 import url = require('url');
 import * as semver from 'semver';
 import * as ora from 'ora';
+import { promise } from 'ora';
 const packageJson = require('../package.json');
 
 export interface IRapper {
@@ -43,15 +45,25 @@ export interface IRapper {
   /** 选填，类型变换 type Selector<T> = T */
   resSelector?: string;
 }
-export default async function({
-  type,
-  rapUrl = 'http://rap2.taobao.org',
-  apiUrl = 'http://rap2api.taobao.org',
-  rapperPath = './src/rapper',
+
+// type: 'normal',
+//     apiUrl: 'https://rap-api.xiaodiankeji.net/repository/get?id=23&token=K8qm31HyAoGopAu7kE3TIVWTMX0EOENf',
+//     /** rap 前端地址，默认是 http://rap2.taobao.org */
+//     rapUrl: 'https://rap.xiaodiankeji.net',
+//     /** 输出文件的目录，默认是 ./src/rapper */
+//     rapperPath: './test/src/models/rapper',
+rapper({});
+export default async function rapper({
   urlMapper = t => t,
-  codeStyle,
+  codeStyle = undefined,
   resSelector = 'type ResSelector<T> = T',
-}: IRapper) {
+}) {
+  let type = 'normal',
+    apiUrl =
+      'http://rap2api.taobao.org/repository/get?id=284428&token=TTDNJ7gvXgy9R-9axC-7_mbi4ZxEPlp6',
+    /** rap 前端地址，默认是 http://rap2.taobao.org */
+    rapUrl = 'http://rap2.taobao.org',
+    rapperPath = './actions';
   const rapperVersion: string = packageJson.version;
   console.log(`当前rapper版本: ${chalk.grey(rapperVersion)}`);
   const spinner = ora(chalk.grey('rapper: 开始检查版本'));
@@ -130,19 +142,107 @@ export default async function({
   /** 输出文件集合 */
   let outputFiles = [];
   /** 所有接口集合 */
-  let interfaces: Array<Intf> = [];
+  const interfaces: Array<Intf> = [];
   spinner.start(chalk.grey('rapper: 正在从 Rap 平台获取接口信息...'));
+  let modules: IModules[] = [];
   try {
-    interfaces = await getInterfaces(apiUrl);
+    modules = await getModules(apiUrl);
+    // modules = [modules[0]]
+    // 模块
+    // outputFiles.push()
+    // const _interfaces = modules[0].interfaces
+    // interfaces = await getInterfaces(_interfaces);
     spinner.succeed(chalk.grey('rapper: 获取接口信息成功'));
+    // console.log('============', interfaces)
   } catch (e) {
     return new Promise(() => spinner.fail(chalk.red(`rapper: 获取接口信息失败，${e}`)));
   }
-  interfaces = uniqueItfs(getIntfWithModelName(rapUrl, interfaces, urlMapper));
+  //--
+  // interfaces = uniqueItfs(getIntfWithModelName(rapUrl, interfaces, urlMapper));
+  const allInterfaces = modules.map(e => e.interfaces); // .flat();
+  sanDeleteInterfaces(allInterfaces, rapperPath, projectId, spinner);
 
+  spinner.start(chalk.grey('rapper: 正在生成模板代码...'));
+
+  try {
+    /** 生成 index.ts */
+    // const indexCodeArr: Array<IGeneratedCode> = [createBaseIndexCode()];
+    // if (Creator.createIndexStr) {
+    //   indexCodeArr.push(Creator.createIndexStr());
+    // }
+    // const indexStr = `
+    //   ${creatHeadHelpStr(rapUrl, projectId, rapperVersion)}
+    //   ${mixGeneratedCode(indexCodeArr)}
+    // `;
+    // outputFiles.push({
+    //   path: `${rapperPath}/index.ts`,
+    //   content: format(indexStr, DEFAULT_OPTIONS),
+    // });
+
+    /** 生成基础的 request.ts 请求函数和类型声明 */
+
+    await Promise.all(
+      modules.map(async m => {
+        const interfaces = m.interfaces;
+        const fileName = m.description;
+        const { tsInterfaceStr, tsCodeStr } = await createBaseRequestStr(interfaces, {
+          rapUrl,
+          resSelector,
+        });
+
+        const requestStr = `
+      ${creatHeadHelpStr(rapUrl, projectId, m.id, rapperVersion)}
+      /// <reference path="./types/${fileName}.ts" />
+        ${tsCodeStr}
+      `;
+        outputFiles.push(
+          {
+            path: `${rapperPath}/types/${fileName}.ts`,
+            content: format(tsInterfaceStr, DEFAULT_OPTIONS),
+          },
+          {
+            path: `${rapperPath}/${fileName}.ts`,
+            content: format(requestStr, DEFAULT_OPTIONS),
+          },
+        );
+
+        /** 生成的模板文件第一行增加MD5 */
+      }),
+    );
+
+    outputFiles = outputFiles.map(item => ({
+      ...item,
+      content: `/* md5: ${getMd5(item.content)} */\n${item.content}`,
+    }));
+  } catch (err) {
+    spinner.fail(chalk.red(`rapper: 失败！${err.message}`));
+    return;
+  }
+
+  return Promise.all(outputFiles.map(({ path, content }) => writeFile(path, content)))
+    .then(() => {
+      spinner.succeed(
+        chalk.green(
+          `rapper: 成功！共同步了 ${modules.length} 个模块, ${allInterfaces.length} 个接口`,
+        ),
+      );
+    })
+    .catch(err => {
+      spinner.fail(chalk.red(`rapper: 失败！${err.message}`));
+    });
+}
+
+// 扫描被删除的接口
+async function sanDeleteInterfaces(
+  interfaces: any[],
+  rapperPath: string,
+  projectId: number,
+  spinner: any,
+) {
   /** Rap 接口引用扫描，如果 projectId 更改了就不再扫描，避免过多的报错信息展现在Terminal */
   spinner.start(chalk.grey('rapper: 正在扫描接口依赖'));
   if (getOldProjectId(rapperPath) === String(projectId)) {
+    // console.log(rapperPath, 'rapperPath')
     const scanResult = findDeleteFiles(interfaces, [rapperPath]);
     if (scanResult.length && scanResult.length < 5) {
       spinner.warn(chalk.yellow('rapper: 如下文件使用了已被 Rap 删除或修改的接口'));
@@ -161,86 +261,4 @@ export default async function({
   } else {
     spinner.succeed(chalk.grey('rapper: 未发现不合法依赖'));
   }
-
-  spinner.start(chalk.grey('rapper: 正在生成模板代码...'));
-  let Creator: {
-    createIndexStr?: () => IGeneratedCode;
-    createDynamicStr?: (interfaces: Array<Intf>, extr: ICreatorExtr) => string;
-    createBaseRequestStr?: (interfaces: Array<Intf>, extr: ICreatorExtr) => Promise<string>;
-  } = {};
-  switch (type) {
-    case 'redux':
-      Creator = ReduxCreator;
-      break;
-    default:
-      Creator = {};
-  }
-
-  try {
-    /** 生成 index.ts */
-    const indexCodeArr: Array<IGeneratedCode> = [createBaseIndexCode()];
-    if (Creator.createIndexStr) {
-      indexCodeArr.push(Creator.createIndexStr());
-    }
-    const indexStr = `
-      ${creatHeadHelpStr(rapUrl, projectId, rapperVersion)}
-      ${mixGeneratedCode(indexCodeArr)}
-    `;
-    outputFiles.push({
-      path: `${rapperPath}/index.ts`,
-      content: format(indexStr, DEFAULT_OPTIONS),
-    });
-
-    /** 生成基础的 request.ts 请求函数和类型声明 */
-    let requestStr = '';
-    if (Creator.createBaseRequestStr) {
-      requestStr = await Creator.createBaseRequestStr(interfaces, {
-        rapUrl,
-        resSelector,
-      });
-    } else {
-      requestStr = await createBaseRequestStr(interfaces, {
-        rapUrl,
-        resSelector,
-      });
-    }
-    requestStr = `
-      ${creatHeadHelpStr(rapUrl, projectId, rapperVersion)}
-      ${requestStr}
-    `;
-    outputFiles.push({
-      path: `${rapperPath}/request.ts`,
-      content: format(requestStr, DEFAULT_OPTIONS),
-    });
-
-    /** 生成 ${type}.ts 动态的 */
-    Creator.createDynamicStr &&
-      outputFiles.push({
-        path: `${rapperPath}/${type}.ts`,
-        content: format(
-          `
-            ${creatHeadHelpStr(rapUrl, projectId, rapperVersion)}
-            ${Creator.createDynamicStr(interfaces, { rapUrl, resSelector })}
-          `,
-          DEFAULT_OPTIONS,
-        ),
-      });
-
-    /** 生成的模板文件第一行增加MD5 */
-    outputFiles = outputFiles.map(item => ({
-      ...item,
-      content: `/* md5: ${getMd5(item.content)} */\n${item.content}`,
-    }));
-  } catch (err) {
-    spinner.fail(chalk.red(`rapper: 失败！${err.message}`));
-    return;
-  }
-
-  return Promise.all(outputFiles.map(({ path, content }) => writeFile(path, content)))
-    .then(() => {
-      spinner.succeed(chalk.green(`rapper: 成功！共同步了 ${interfaces.length} 个接口`));
-    })
-    .catch(err => {
-      spinner.fail(chalk.red(`rapper: 失败！${err.message}`));
-    });
 }

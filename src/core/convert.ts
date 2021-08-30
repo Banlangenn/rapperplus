@@ -10,6 +10,7 @@ function inferArraySchema(
   common: Record<string, any>,
 ) {
   const rule = (p.rule && p.rule.trim()) || '';
+  // console.log(p)
   if (Object.keys(childProperties).length !== 0) {
     // 如果有子孙那么肯定是 object
     return [
@@ -154,7 +155,7 @@ function getRestfulPlaceHolders(itf: Interface.IRoot) {
 
 function interfaceToJSONSchema(itf: Interface.IRoot, scope: Scope): JSONSchema4 {
   let properties = itf.properties.filter(p => p.scope === scope);
-
+  //  console.log(properties, 'json')
   properties = [
     ...properties,
     {
@@ -201,7 +202,18 @@ function interfaceToJSONSchema(itf: Interface.IRoot, scope: Scope): JSONSchema4 
               ? childItfs.filter(e => e.required).map(e => e.name)
               : childItfs.map(e => e.name),
         };
-        if (p.description) common.description = removeComment(p.description);
+
+        common.description = '';
+        if (p?.description !== undefined && p.description !== '' && p.description !== null) {
+          common.description = `${removeComment(p.description)}`;
+        }
+        // console.log(typeof p?.rule, p?.rule)
+        if (p?.rule !== undefined && p.rule !== '' && p.rule !== null) {
+          common.description += `\n@rule ${removeComment(p.rule)}`;
+        }
+        if (p?.value !== undefined && p.value !== '' && p.value !== null) {
+          common.description += `\n@value ${removeComment(p.value).replace(/^@/, '/@')}`;
+        }
 
         /**
          * 处理枚举，支持以下形式：（目前为控制影响范围，只对 string、number 做处理）
@@ -280,6 +292,7 @@ function interfaceToJSONSchema(itf: Interface.IRoot, scope: Scope): JSONSchema4 
 export default function convert(itf: Interface.IRoot): Promise<string[]> {
   const reqJSONSchema = interfaceToJSONSchema(itf, 'request');
   const resJSONSchema = interfaceToJSONSchema(itf, 'response');
+  // console.log(resJSONSchema.properties, 'resJSONSchema')
 
   const options: Options = {
     ...DEFAULT_OPTIONS,

@@ -124,6 +124,7 @@ export function findDeleteFiles(interfaces: Array<Intf>, excludePaths: string[])
  */
 export function findChangeFiles(rapperPath: string): string[] {
   const fileList = getFiles(rapperPath);
+  // console.log('fileList', fileList, rapperPath)
   const changeList: string[] = [];
   fileList.forEach(filePath => {
     /** 读取文件的内容 */

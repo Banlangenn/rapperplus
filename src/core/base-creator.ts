@@ -3,22 +3,61 @@ import convert from './convert';
 import { Intf, IGeneratedCode, ICreatorExtr } from '../types';
 import { creatInterfaceHelpStr } from './tools';
 import { getPackageName } from '../utils';
+import config from './../uploadType/config';
 
 const packageName = getPackageName();
 
+function getFnName(url: string): null | string {
+  const fnName = url.match(/\/([.a-z0-9_-]+)\/([a-z0-9_-]+$)/i);
+  if (fnName && fnName.length === 3) {
+    if (/^\d+\.\d+$/.test(fnName[1])) {
+      return fnName[2];
+    }
+    return fnName[1] + fnName[2].charAt(0).toUpperCase() + fnName[2].slice(1);
+  }
+  return null;
+}
 /** 生成 Models 文件 */
 export async function createModel(interfaces: Array<Intf>, extr: ICreatorExtr) {
-  const itfStrs = await Promise.all(
+  return await Promise.all(
     interfaces.map(async itf => {
       try {
         const [reqItf, resItf] = await convert(itf);
-        return `
-            ${creatInterfaceHelpStr(extr.rapUrl, itf)}
-            '${itf.modelName}': {
-              Req: ${reqItf.replace(/export (type|interface) Req =?/, '').replace(/;/g, '')};
-              Res: ${resItf.replace(/export (type|interface) Res =?/, '').replace(/;/g, '')};
-            }
+        const ReqType = reqItf
+          .replace(/export (type|interface) Req =?/, '')
+          .replace(/;/g, '')
+          .replace(/\s?{}\s?/g, 'Record<string, unknown>');
+        const ResType = resItf
+          .replace(/export (type|interface) Res =?/, '')
+          .replace(/\s?{}\s?/g, 'Record<string, unknown>');
+        const fnName = getFnName(itf.url);
+        if (!fnName) {
+          throw new TypeError('接口路径不对,请修改合规');
+        }
+        const camelCaseName = `${fnName.charAt(0).toUpperCase()}${fnName.slice(1)}`;
+        const tsInterface = `
+          ${creatInterfaceHelpStr(extr.rapUrl, itf)}
+          declare type IReq${camelCaseName} = ${ReqType}
+          declare type IRes${camelCaseName} = ${ResType}
+        `;
+        const tsCode = `
+        ${creatInterfaceHelpStr(extr.rapUrl, itf)}
+        ${config.download.createRequestFuncStr({
+          name: itf.name,
+          repositoryId: itf.repositoryId,
+          moduleId: itf.moduleId,
+          interfaceId: itf.id,
+          paramsType: `IReq${camelCaseName}`,
+          returnType: `IRes${camelCaseName}`,
+          rapUrl: `${extr.rapUrl}/repository/editor`,
+          method: itf.method,
+          url: `${itf.url}`,
+        })}
           `;
+        return {
+          tsInterface,
+          tsCode,
+        };
       } catch (error) {
         throw chalk.red(`接口：${extr.rapUrl}/repository/editor?id=${itf.repositoryId}&mod=${itf.moduleId}&itf=${itf.id}
           生成出错
@@ -26,11 +65,6 @@ export async function createModel(interfaces: Array<Intf>, extr: ICreatorExtr) {
       }
     }),
   );
-  return `
-        export interface IModels {
-            ${itfStrs.join('\n\n')}
-        };
-    `;
 }
 
 /** 生成 IResponseTypes */
@@ -46,45 +80,24 @@ export function createResponseTypes(interfaces: Array<Intf>) {
   `;
 }
 
+// // 创建门店
+
 export async function createBaseRequestStr(interfaces: Array<Intf>, extr: ICreatorExtr) {
-  const { rapUrl, resSelector } = extr;
-  const modelStr = await createModel(interfaces, extr);
-  return `
-    import * as commonLib from '${packageName}/runtime/commonLib'
+  const modelArr = await createModel(interfaces, extr);
+  const tsInterfaceStr = modelArr.map(e => e.tsInterface).join('\n\n');
+  const tsCodeStr = modelArr.map(e => e.tsCode).join('\n\n');
+  return {
+    tsInterfaceStr,
+    tsCodeStr: `
+    import instance from "@/utils/request"
+    type IResType<T extends boolean, U extends { data: any }> = T extends true
+    ? U['data']
+    : U
 
-    ${modelStr}
+    ${tsCodeStr}
 
-    ${resSelector}
-  
-    ${createResponseTypes(interfaces)}
-
-    export function createFetch(fetchConfig: commonLib.RequesterOption, extraConfig?: { fetchType?: commonLib.FetchType }) {
-      if (!extraConfig || !extraConfig.fetchType) {
-        console.warn('Rapper Warning: createFetch API will be deprecated, if you want to customize fetch, please use overrideFetch instead, since new API guarantees better type consistency during frontend lifespan. See detail https://www.yuque.com/rap/rapper/overridefetch')
-      }
-      const rapperFetch = commonLib.getRapperRequest(fetchConfig)
-
-      return {
-        ${interfaces
-          .map(itf => {
-            const modelName = itf.modelName;
-            const extra = `* @param req 请求参数
-            * @param extra 请求配置项`;
-            return `
-            ${creatInterfaceHelpStr(rapUrl, itf, extra)}
-            '${modelName}': (req?: IModels['${modelName}']['Req'], extra?: commonLib.IExtra) => {
-              return rapperFetch({
-                url: '${itf.url}',
-                method: '${itf.method.toUpperCase()}',
-                params: req, 
-                extra
-              }) as Promise<IResponseTypes['${modelName}']>;
-            }`;
-          })
-          .join(',\n\n')}
-      };
-    }
-    `;
+    `,
+  };
 }
 
 export function createBaseIndexCode(): IGeneratedCode {

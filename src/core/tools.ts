@@ -23,42 +23,50 @@ function updateURLParameter(url: string, param: string, paramVal: string) {
   return baseURL + '?' + newAdditionalURL + rowsTxt;
 }
 
-/** 从rap查询所有接口数据 */
-export async function getInterfaces(rapApiUrl: string) {
+// 获取模块
+export async function getModules(rapApiUrl: string) {
   const response = await axios.get(rapApiUrl, { timeout: 1000 * 20 });
   const data = response.data.data;
   const modules: Array<IModules> = data.modules;
-  const collaborators: Array<ICollaborator> = data.collaborators;
+  // const collaborators: Array<ICollaborator> = data.collaborators;
+  return modules;
+}
+/** 从rap查询所有接口数据 */
+export async function getInterfaces(_interfaces: Intf[]) {
+  let interfaces = _interfaces;
+  // 暂时用不上写作仓库
+  // const collaborators: Array<ICollaborator> = data.collaborators;
+  // const moduleName = '门店管理' // 门店管理 公共模块
+  // console.log('\n生成模块:' + moduleName)
+  // let interfaces = _(modules).filter(e => e.name === moduleName)
+  //   .map(m => m.interfaces)
+  //   .flatten()
+  //   .value();
 
-  let interfaces = _(modules)
-    .map(m => m.interfaces)
-    .flatten()
-    .value();
-
-  if (collaborators.length) {
-    const collaboratorsInterfaces = await Promise.all(
-      collaborators.map(e =>
-        getInterfaces(
-          updateURLParameter(
-            updateURLParameter(rapApiUrl, 'id', e.id.toString()),
-            'token',
-            e.token || '',
-          ),
-        ),
-      ),
-    );
-    // 协作仓库有重复接口，将被主仓库覆盖
-    interfaces = _.unionBy(interfaces, _.flatten(collaboratorsInterfaces), item => {
-      // 描述中如果存在唯一标示定义，优先使用
-      const matches = item.description.match(/\${union:\s?(.*)}/);
-      if (matches) {
-        const [__, unionID] = matches;
-        return unionID;
-      }
-      // 使用 method-url 作为 key
-      return `${item.method}-${item.url}`;
-    });
-  }
+  // if (collaborators.length) {
+  //   const collaboratorsInterfaces = await Promise.all(
+  //     collaborators.map(e =>
+  //       getInterfaces(
+  //         updateURLParameter(
+  //           updateURLParameter(rapApiUrl, 'id', e.id.toString()),
+  //           'token',
+  //           e.token || '',
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  //   // 协作仓库有重复接口，将被主仓库覆盖
+  //   interfaces = _.unionBy(interfaces, _.flatten(collaboratorsInterfaces), item => {
+  //     // 描述中如果存在唯一标示定义，优先使用
+  //     const matches = item.description.match(/\${union:\s?(.*)}/);
+  //     if (matches) {
+  //       const [__, unionID] = matches;
+  //       return unionID;
+  //     }
+  //     // 使用 method-url 作为 key
+  //     return `${item.method}-${item.url}`;
+  //   });
+  // }
 
   // 去除字段中的空格
   interfaces = interfaces.map(item => ({ ...item, name: item.name.trim() }));
@@ -137,7 +145,12 @@ export function uniqueItfs(itfs: Array<Intf>) {
 }
 
 /** 生成提示文案 */
-export function creatHeadHelpStr(rapUrl: string, projectId: number, rapperVersion: string): string {
+export function creatHeadHelpStr(
+  rapUrl: string,
+  projectId: number,
+  modId: number,
+  rapperVersion: string,
+): string {
   return `
   /* Rap仓库id: ${projectId} */
   /* Rapper版本: ${rapperVersion} */
@@ -147,7 +160,7 @@ export function creatHeadHelpStr(rapUrl: string, projectId: number, rapperVersio
   
   /**
    * 本文件由 Rapper 同步 Rap 平台接口，自动生成，请勿修改
-   * Rap仓库 地址: ${rapUrl}/repository/editor?id=${projectId}
+   * Rap仓库 地址: ${rapUrl}/repository/editor?id=${projectId}&mod=${modId}
    */
   `;
 }

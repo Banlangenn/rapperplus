@@ -1,0 +1,5 @@
+{
+  "devDependencies": {
+    "typescript-json-schema": "^0.50.1"
+  }
+}
