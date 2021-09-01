@@ -1,59 +1,73 @@
 #!/usr/bin/env node
 
-import { rapper } from './index';
+import { rapper, defineConfig, uploadType } from './index';
 import { resolve } from 'path';
+import { existsSync } from 'fs';
+import { searchRootPath } from './utils';
 import chalk from 'chalk';
 import * as program from 'commander';
-import { IRapper } from './rapper';
-
-// Todo: 增加 checkUpdate
 
 (() => {
   program
-    .option('--type <typeName>', '设置类型')
     .option('--apiUrl <apiUrl>', '设置Rap平台后端地址')
     .option('--rapUrl <rapUrl>', '设置Rap平台前端地址')
     .option('--rapperPath <rapperPath>', '设置生成代码所在目录')
-    .option('--resSelector <resSelector>', '响应数据类型转换配置');
+    .option('--c, --config <configPath>', 'config文件路径')
+    .option('--m, --moduleId <moduleId>', '模块ID')
+    .option('--u, --upload []', '上传类型')
+    .option('--d, --download []', '下载类型');
 
   program.parse(process.argv);
 
-  let rapperConfig: IRapper;
-  if (program.type && program.apiUrl && program.rapUrl) {
-    /** 通过 scripts 配置 */
-    rapperConfig = {
-      type: program.type,
-      apiUrl: program.apiUrl,
-      rapUrl: program.rapUrl,
-      rapperPath: resolve(process.cwd(), program.rapperPath || './src/models/rapper/'),
-    };
-    if (program.resSelector) {
-      rapperConfig = { ...rapperConfig, resSelector: program.resSelector };
-    }
-  } else {
-    /** 通过 package.json 的 rapper 字段配置 */
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const packageConfig = require(resolve(process.cwd(), './package.json'));
+  const isUpload: boolean = program.upload ? true : false;
+  const configName = 'rapperPlus';
+  let config = defineConfig({});
+  const rootPath = searchRootPath();
 
-    if (!packageConfig.rapper) {
-      console.log(chalk.yellow('尚未在 package.json 中配置 rapper，请参考配置手册'));
+  // 通过 命令行配置config
+  if (program.config) {
+    const configPath = resolve(rootPath, program.config);
+    if (existsSync(configPath)) {
+      console.log(chalk.yellow('config 文件路径不对，请检查'));
       process.exit(1);
     }
-    const { projectId, type, rapUrl, apiUrl, rapperPath, resSelector } = packageConfig.rapper;
-    if (!projectId) {
-      console.log(chalk.yellow('尚未在 package.json 中配置 rapper.projectId'));
-      process.exit(1);
-    }
-    rapperConfig = {
-      type: type || 'redux',
-      apiUrl: `${apiUrl}/repository/get?id=${projectId}`,
-      rapUrl,
-      rapperPath: resolve(process.cwd(), rapperPath || './src/models/rapper/'),
-    };
-    if (resSelector) {
-      rapperConfig = { ...rapperConfig, resSelector: resSelector };
+    config = require(configPath);
+  } else {
+    // 通过config.js配置config
+    const configPath = resolve(rootPath, `${configName}.config.js`);
+    const existsConfigPath = existsSync(configPath);
+    if (existsConfigPath) {
+      config = require(configPath);
     }
   }
 
-  rapper(rapperConfig);
+  /** 通过 package.json 配置config */
+  const packageConfig = require(resolve(rootPath, './package.json'));
+
+  if (packageConfig.rapperPlus) {
+    config = defineConfig(packageConfig.rapperPlus);
+  }
+
+  // 都没有就用 defaultConfig
+
+  if (program.moduleId) {
+    config.download.moduleId = program.moduleId;
+    config.upload.moduleId = program.moduleId;
+  }
+
+  if (program.apiUrl && program.rapUrl) {
+    /** 通过 scripts 配置 */
+    const rapperConfig = {
+      apiUrl: program.apiUrl,
+      rapUrl: program.rapUrl,
+      rapperPath: program.rapperPath || config.download.rap.rapperPath,
+    };
+    config.download.rap = rapperConfig;
+  }
+
+  if (isUpload) {
+    rapper(config);
+  } else {
+    uploadType(config);
+  }
 })();

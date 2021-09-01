@@ -2,10 +2,8 @@ import * as fs from 'fs';
 // const path = require('path');
 import * as path from 'path';
 import * as ts from 'typescript';
-// const originCode = fs.readFileSync('./../actions/testdemo.ts', 'utf-8');
+import type { IOptions } from './../mergeOptions'
 
-// const ast = ts.createSourceFile('testdemo.ts', originCode, ts.ScriptTarget.Latest, true);
-// console.dir(ast);
 function isNodeExported(node: ts.Node): boolean {
   return (
     (ts.getCombinedModifierFlags(node as ts.Declaration) & ts.ModifierFlags.Export) !== 0 ||
@@ -31,7 +29,11 @@ export interface IFuncInfo {
   comment: string;
 }
 
-export function requestFileParse(filePath: string, formatFunc: (params: IFuncInfo) => ITypeName) {
+export function requestFileParse(
+  filePath: string,
+  formatFunc: (params: IFuncInfo) => ITypeName,
+  config: IOptions,
+) {
   const program = ts.createProgram([filePath], { allowJs: false });
   const sourceFile = program.getSourceFile(filePath);
 
@@ -70,7 +72,11 @@ export function requestFileParse(filePath: string, formatFunc: (params: IFuncInf
       let comment = '';
       node.getChildren(sourceFile).forEach(el => {
         if (ts.isJSDoc(el)) {
-          comment = el.comment;
+          // const a = ts.getCommentRange(el);
+          // if (ts.isArrayTypeNode(el)) {
+          //   console.log(el);
+          // }
+          comment = el.comment as string;
         }
         if (ts.isVariableDeclarationList(el)) {
           // console.log(e);
@@ -101,8 +107,9 @@ export function requestFileParse(filePath: string, formatFunc: (params: IFuncInf
       });
     }
   });
+  const funcType = exportInterfaceFunc.map(formatFunc);
   return {
     importType,
-    typeName: exportInterfaceFunc.map(formatFunc),
+    funcType,
   };
 }

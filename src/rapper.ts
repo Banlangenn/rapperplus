@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import { format } from 'json-schema-to-typescript/dist/src/formatter';
 import { DEFAULT_OPTIONS } from 'json-schema-to-typescript';
+import { IOptions } from './uploadType/mergeOptions';
 import {
   Intf,
   IModules,
@@ -11,7 +12,6 @@ import {
   ICreatorExtr,
 } from './types';
 import { createBaseRequestStr, createBaseIndexCode } from './core/base-creator';
-import ReduxCreator from './redux';
 import {
   writeFile,
   mixGeneratedCode,
@@ -24,10 +24,41 @@ import {
 import { getInterfaces, getModules, uniqueItfs, creatHeadHelpStr } from './core/tools';
 import { findDeleteFiles, findChangeFiles, findRapperVersion } from './core/scanFile';
 import url = require('url');
-import * as semver from 'semver';
+
 import * as ora from 'ora';
-import { promise } from 'ora';
+
 const packageJson = require('../package.json');
+
+// 扫描被删除的接口
+async function sanDeleteInterfaces(
+  interfaces: any[],
+  rapperPath: string,
+  projectId: number,
+  spinner: any,
+) {
+  /** Rap 接口引用扫描，如果 projectId 更改了就不再扫描，避免过多的报错信息展现在Terminal */
+  spinner.start(chalk.grey('rapper: 正在扫描接口依赖'));
+  if (getOldProjectId(rapperPath) === String(projectId)) {
+    // console.log(rapperPath, 'rapperPath')
+    const scanResult = findDeleteFiles(interfaces, [rapperPath]);
+    if (scanResult.length && scanResult.length < 5) {
+      spinner.warn(chalk.yellow('rapper: 如下文件使用了已被 Rap 删除或修改的接口'));
+      scanResult.forEach(({ key, filePath, start, line }) => {
+        console.log(chalk.yellow(`    接口: ${key}, 所在文件: ${filePath}:${line}:${start}`));
+      });
+      const { confirmed } = await templateFilesRelyConfirm();
+      if (!confirmed) {
+        console.log(chalk.red('更新操作已终止'));
+        process.exit(0);
+        return;
+      }
+    } else {
+      spinner.succeed(chalk.grey('rapper: 未发现不合法依赖'));
+    }
+  } else {
+    spinner.succeed(chalk.grey('rapper: 未发现不合法依赖'));
+  }
+}
 
 export interface IRapper {
   /** 必填，redux、normal 等 */
@@ -52,36 +83,36 @@ export interface IRapper {
 //     rapUrl: 'https://rap.xiaodiankeji.net',
 //     /** 输出文件的目录，默认是 ./src/rapper */
 //     rapperPath: './test/src/models/rapper',
-rapper({});
-export default async function rapper({
-  urlMapper = t => t,
-  codeStyle = undefined,
-  resSelector = 'type ResSelector<T> = T',
-}) {
-  let type = 'normal',
-    apiUrl =
-      'http://rap2api.taobao.org/repository/get?id=284428&token=TTDNJ7gvXgy9R-9axC-7_mbi4ZxEPlp6',
-    /** rap 前端地址，默认是 http://rap2.taobao.org */
-    rapUrl = 'http://rap2.taobao.org',
-    rapperPath = './actions';
-  const rapperVersion: string = packageJson.version;
-  console.log(`当前rapper版本: ${chalk.grey(rapperVersion)}`);
+// rapper({});
+export default async function rapper(config: IOptions) {
+  const type = 'normal';
+  const urlMapper = t => t;
+  const codeStyle = undefined;
+  const resSelector = 'type ResSelector<T> = T';
+  // apiUrl =
+  //   'http://rap2api.taobao.org/repository/get?id=284428&token=TTDNJ7gvXgy9R-9axC-7_mbi4ZxEPlp6',
+  // /** rap 前端地址，默认是 http://rap2.taobao.org */
+  // rapUrl = 'http://rap2.taobao.org',
+  // rapperPath = './actions';
+  let { apiUrl, rapUrl, rapperPath } = config.download.rap;
+  // const rapperVersion: string = packageJson.version;
+  // console.log(`当前rapper版本: ${chalk.grey(rapperVersion)}`);
   const spinner = ora(chalk.grey('rapper: 开始检查版本'));
   spinner.start();
   /** 检查版本，给出升级提示 */
-  try {
-    const newVersion = await latestVersion('rap', rapperVersion.indexOf('beta') > -1);
-    if (semver.lt(rapperVersion, newVersion)) {
-      spinner.warn(chalk.yellow('rapper 升级提示: '));
-      console.log(`  当前版本: ${chalk.grey(rapperVersion)}`);
-      console.log(`  最新版本: ${chalk.cyan(newVersion)}`);
-      // console.log(
-      //   `  运行 ${chalk.green(`npm i -D ${packageJson.name}@latest && npm run rapper`)} 即可升级`,
-      // );
-    }
-  } catch (err) {
-    spinner.warn(`rapper 版本检查失败，${err.message}`);
-  }
+  // try {
+  //   const newVersion = await latestVersion('rap', rapperVersion.indexOf('beta') > -1);
+  //   if (semver.lt(rapperVersion, newVersion)) {
+  //     spinner.warn(chalk.yellow('rapper 升级提示: '));
+  //     console.log(`  当前版本: ${chalk.grey(rapperVersion)}`);
+  //     console.log(`  最新版本: ${chalk.cyan(newVersion)}`);
+  //     // console.log(
+  //     //   `  运行 ${chalk.green(`npm i -D ${packageJson.name}@latest && npm run rapper`)} 即可升级`,
+  //     // );
+  //   }
+  // } catch (err) {
+  //   spinner.warn(`rapper 版本检查失败，${err.message}`);
+  // }
 
   /** 参数校验 */
   spinner.start(chalk.grey('rapper: 开始校验参数'));
@@ -108,18 +139,18 @@ export default async function rapper({
   apiUrl = apiUrl.replace(/\/$/, '');
 
   /** 校验当前 rapper 的版本是否比旧模板代码版本低，强制升级 */
-  const oldFilesRapperVersion = findRapperVersion(rapperPath);
-  if (oldFilesRapperVersion && semver.lt(rapperVersion, oldFilesRapperVersion)) {
-    return new Promise(() => {
-      spinner.fail(
-        chalk.red(
-          'rapper 执行失败: 当前环境 rapper 版本低于已经生成的模板文件版本，为避免低版本覆盖高版本，请您升级',
-        ),
-      );
-      console.log(`  当前版本: ${chalk.grey(rapperVersion)}`);
-      console.log(`  当前模板文件版本: ${chalk.cyan(oldFilesRapperVersion)}`);
-    });
-  }
+  // const oldFilesRapperVersion = findRapperVersion(rapperPath);
+  // if (oldFilesRapperVersion && semver.lt(rapperVersion, oldFilesRapperVersion)) {
+  //   return new Promise(() => {
+  //     spinner.fail(
+  //       chalk.red(
+  //         'rapper 执行失败: 当前环境 rapper 版本低于已经生成的模板文件版本，为避免低版本覆盖高版本，请您升级',
+  //       ),
+  //     );
+  //     console.log(`  当前版本: ${chalk.grey(rapperVersion)}`);
+  //     console.log(`  当前模板文件版本: ${chalk.cyan(oldFilesRapperVersion)}`);
+  //   });
+  // }
 
   /** 扫描找出生成的模板文件是否被手动修改过 */
   spinner.start(chalk.grey('rapper: 检测模板代码是否被修改'));
@@ -142,7 +173,7 @@ export default async function rapper({
   /** 输出文件集合 */
   let outputFiles = [];
   /** 所有接口集合 */
-  const interfaces: Array<Intf> = [];
+  // const interfaces: Array<Intf> = [];
   spinner.start(chalk.grey('rapper: 正在从 Rap 平台获取接口信息...'));
   let modules: IModules[] = [];
   try {
@@ -159,40 +190,42 @@ export default async function rapper({
   }
   //--
   // interfaces = uniqueItfs(getIntfWithModelName(rapUrl, interfaces, urlMapper));
+  // 下载  modId
+  if (config.download.moduleId) {
+    modules = modules.filter(e => e.id === config.download.moduleId);
+  }
   const allInterfaces = modules.map(e => e.interfaces); // .flat();
   sanDeleteInterfaces(allInterfaces, rapperPath, projectId, spinner);
 
   spinner.start(chalk.grey('rapper: 正在生成模板代码...'));
 
   try {
-    /** 生成 index.ts */
-    // const indexCodeArr: Array<IGeneratedCode> = [createBaseIndexCode()];
-    // if (Creator.createIndexStr) {
-    //   indexCodeArr.push(Creator.createIndexStr());
-    // }
-    // const indexStr = `
-    //   ${creatHeadHelpStr(rapUrl, projectId, rapperVersion)}
-    //   ${mixGeneratedCode(indexCodeArr)}
-    // `;
-    // outputFiles.push({
-    //   path: `${rapperPath}/index.ts`,
-    //   content: format(indexStr, DEFAULT_OPTIONS),
-    // });
-
     /** 生成基础的 request.ts 请求函数和类型声明 */
 
     await Promise.all(
       modules.map(async m => {
         const interfaces = m.interfaces;
-        const fileName = m.description;
-        const { tsInterfaceStr, tsCodeStr } = await createBaseRequestStr(interfaces, {
-          rapUrl,
-          resSelector,
+        // const fileName = m.description;
+        const { tsInterfaceStr, tsCodeStr, tsInterfaceNames } = await createBaseRequestStr(
+          interfaces,
+          {
+            rapUrl,
+            resSelector,
+          },
+          config,
+        );
+        const { fileName, moduleHeader } = config.download.requestModule({
+          repositoryId: m.priority,
+          moduleId: m.id,
+          moduleRapUrl: rapUrl,
+          moduleDescription: m.description,
         });
-
         const requestStr = `
-      ${creatHeadHelpStr(rapUrl, projectId, m.id, rapperVersion)}
-      /// <reference path="./types/${fileName}.ts" />
+      ${creatHeadHelpStr(rapUrl, projectId, m.id)}
+        import type {
+          ${tsInterfaceNames.join(',')}
+        } from './types/${fileName}.ts'
+        ${moduleHeader}
         ${tsCodeStr}
       `;
         outputFiles.push(
@@ -230,35 +263,4 @@ export default async function rapper({
     .catch(err => {
       spinner.fail(chalk.red(`rapper: 失败！${err.message}`));
     });
-}
-
-// 扫描被删除的接口
-async function sanDeleteInterfaces(
-  interfaces: any[],
-  rapperPath: string,
-  projectId: number,
-  spinner: any,
-) {
-  /** Rap 接口引用扫描，如果 projectId 更改了就不再扫描，避免过多的报错信息展现在Terminal */
-  spinner.start(chalk.grey('rapper: 正在扫描接口依赖'));
-  if (getOldProjectId(rapperPath) === String(projectId)) {
-    // console.log(rapperPath, 'rapperPath')
-    const scanResult = findDeleteFiles(interfaces, [rapperPath]);
-    if (scanResult.length && scanResult.length < 5) {
-      spinner.warn(chalk.yellow('rapper: 如下文件使用了已被 Rap 删除或修改的接口'));
-      scanResult.forEach(({ key, filePath, start, line }) => {
-        console.log(chalk.yellow(`    接口: ${key}, 所在文件: ${filePath}:${line}:${start}`));
-      });
-      const { confirmed } = await templateFilesRelyConfirm();
-      if (!confirmed) {
-        console.log(chalk.red('更新操作已终止'));
-        process.exit(0);
-        return;
-      }
-    } else {
-      spinner.succeed(chalk.grey('rapper: 未发现不合法依赖'));
-    }
-  } else {
-    spinner.succeed(chalk.grey('rapper: 未发现不合法依赖'));
-  }
 }

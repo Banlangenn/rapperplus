@@ -12,11 +12,12 @@ import { getMd5 } from '../utils';
  * 获取所有需要扫描的文件
  * @param parentPath
  */
-function getFiles(parentPath: string): string[] {
+export function getFiles(parentPath: string): string[] {
   let fileList: string[] = [];
 
   /* 不扫描无效路径 */
   if (parentPath.indexOf('/.') > -1 || parentPath.indexOf('node_modules') > -1) {
+    console.log(parentPath);
     return fileList;
   }
 

@@ -1,26 +1,34 @@
-import type { IParams } from './index'
+/* md5: bf5ef533f55cdbd7984dbf067f34d023 */
+/* eslint-disable */
 
-
+/**
+ * 接口名：获取商户列表
+ * Rap 地址: http://rap2.taobao.org/repository/editor?id=284428&mod=459499&itf=2006088
+ */
 export type IReqGoodsQbf = {
-  age: string;
-  sex?: string;
+  age: string
+  sex?: string
   /**
    * 新加的 c
    */
   goods?: {
-    arr: IParams<number>
-  };
-  goods2: IParams<string>;
-};
-
-// 怎么判断 俩是一对
+    arr: {
+      count: string
+      name: string
+    }
+  }
+  goods2: {
+    count: string
+    name: string
+  }
+}
 
 export type IResGoodsQbf = {
   /**
    *
    * @value true
    */
-  success: boolean;
+  success: boolean
   data: {
     /**
      * 数组演示
@@ -31,22 +39,34 @@ export type IResGoodsQbf = {
        * n名称
        * @value /@cname
        */
-      name: string;
+      name: string
       /**
        * 年纪
        * @value /@increment(10)
        */
-      age: string;
+      age: string
       /**
        * 心别
        * @value /@increment(10)
        */
-      sex: number;
-    }[];
-  };
+      sex: number
+    }[]
+  }
   /**
    *
    * @value 0
    */
-  code: number;
-};
+  code: number
+}
+
+/**
+ * 接口名：2接口
+ * Rap 地址: http://rap2.taobao.org/repository/editor?id=284428&mod=459499&itf=2033588
+ */
+export type IReqGoodsAudit = {
+  a: string
+}
+
+export type IResGoodsAudit = {
+  b: string
+}

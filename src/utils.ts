@@ -39,7 +39,7 @@ export function writeFile(filepath: string, contents: string): Promise<void> {
   });
 }
 
-export function moveFile(from: string, to: string): Promise<void>  {
+export function moveFile(from: string, to: string): Promise<void> {
   return new Promise((resolve, reject) => {
     mkdirp(path.dirname(to), function(err) {
       if (err) return reject(`读取文件失败: ${from}, ${err}`);
@@ -59,6 +59,38 @@ export function isInRoot() {
   const cwd = process.cwd();
   const flag = fs.existsSync(path.resolve(cwd, 'package.json'));
   return flag;
+}
+
+function allPath(source: string, cwd: string): string[] {
+  let all = [];
+  try {
+    all = fs
+      .readdirSync(path.join(cwd, source))
+      .filter(v => fs.lstatSync(path.join(cwd, source) + v).isDirectory());
+  } catch (error) {
+    console.log(error);
+  }
+  // 把错误吃掉返回文件夹
+  return all;
+}
+
+export function searchRootPath(rank = 4): string {
+  const _rank = rank > 4 ? 4 : rank;
+  const cwd = process.cwd();
+  let dir = ['/', '/../', '/../../', '/../../../'];
+  dir = dir.slice(0, _rank);
+  let rootPath = '';
+  for (const v of dir) {
+    if (allPath(v, cwd).includes('src')) {
+      rootPath = path.join(cwd, v);
+      break;
+    }
+  }
+  if (!rootPath) {
+    console.log('src\t 请移到项目内后再试');
+    return rootPath;
+  }
+  return rootPath;
 }
 
 /** 获取文件md5 */

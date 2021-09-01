@@ -145,15 +145,9 @@ export function uniqueItfs(itfs: Array<Intf>) {
 }
 
 /** 生成提示文案 */
-export function creatHeadHelpStr(
-  rapUrl: string,
-  projectId: number,
-  modId: number,
-  rapperVersion: string,
-): string {
+export function creatHeadHelpStr(rapUrl: string, projectId: number, modId: number): string {
   return `
   /* Rap仓库id: ${projectId} */
-  /* Rapper版本: ${rapperVersion} */
   /* eslint-disable */
   /* tslint:disable */
   // @ts-nocheck

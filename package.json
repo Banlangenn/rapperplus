@@ -22,14 +22,12 @@
     "api",
     "rap",
     "rapper",
-    "typescript",
-    "redux"
+    "typescript"
   ],
   "author": "chibing.fy",
   "license": "ISC",
   "files": [
     "dist",
-    "runtime",
     "README.md",
     "CHANGELOG.md"
   ],
@@ -37,16 +35,11 @@
     "registry": "http://registry.npmjs.org"
   },
   "dependencies": {
-    "@babel/core": "^7.15.0",
-    "@babel/parser": "^7.15.3",
-    "@babel/preset-typescript": "^7.15.0",
-    "@babel/traverse": "^7.15.0",
-    "@babel/types": "^7.15.0",
     "axios": "^0.19.0",
     "chalk": "^2.4.2",
     "commander": "^4.0.1",
     "inquirer": "^7.0.4",
-    "json-schema-to-typescript": "^7.1.0",
+    "json-schema-to-typescript": "^10.1.4",
     "json5": "^2.1.0",
     "lodash": "^4.17.15",
     "mkdirp": "^0.5.1",
