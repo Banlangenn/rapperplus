@@ -69,10 +69,10 @@ $ npx rapper-plus --d --m 34xx
   通过 package.json 配置 rapper-Plus 
 
 
-    ```JSON
+    ```js
     <!--package.json  文件  -->
     {
-      'rapper-Plus ': {
+      'rapper-Plus': {
         upload: { xx: xx }, // 本地上传 配置
         download: { xx: xx } // 远程下载 配置
       }
