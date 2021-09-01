@@ -69,7 +69,7 @@ $ npx rapper-plus --d --m 34xx
   通过 package.json 配置 rapper-Plus 
 
 
-    ```json
+    ```js
     <!--package.json  文件  -->
     {
       'rapper-Plus': {
