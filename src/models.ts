@@ -20,7 +20,7 @@ import * as program from 'commander';
   program.parse(process.argv);
 
   const isUpload: boolean = program.upload ? true : false;
-  const configName = 'rapperPlus';
+  const configName = 'rapper-Plus';
   let config = defineConfig({});
   const rootPath = searchRootPath();
 
