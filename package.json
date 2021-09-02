@@ -1,6 +1,6 @@
 {
   "name": "rapplus",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "rapper, use http api as a function",
   "main": "./dist/index.js",
   "scripts": {
