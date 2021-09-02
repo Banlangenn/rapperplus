@@ -14,14 +14,10 @@ const typeFileJsonMap = {};
 // Blitzcrank  布里茨 机器人
 
 function getModulesFetchParams(requestFile: string, config: IOptions) {
-  const { importType, funcType } = requestFileParse(requestFile, params => ({
-    returnType: params.returnType.match(/T,\s*(\w+)>>$/)[1],
-    paramsType: params.paramsType[0].data,
-    fetchUrl: params.comment.match(/http:\/\/rap2\.tao[\s\S]+&itf=\d+/)[0],
-  }), config);
 
-  return funcType
-    .filter(name => name)
+  const { importType, funcTypes } = requestFileParse(requestFile, config.upload.formatFunc, config);
+
+  return funcTypes
     .map(e => {
       if (importType.importNames.includes(e.paramsType && e.returnType)) {
         // 在这个文件内

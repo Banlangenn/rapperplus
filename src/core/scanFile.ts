@@ -17,7 +17,6 @@ export function getFiles(parentPath: string): string[] {
 
   /* 不扫描无效路径 */
   if (parentPath.indexOf('/.') > -1 || parentPath.indexOf('node_modules') > -1) {
-    console.log(parentPath);
     return fileList;
   }
 

@@ -32,23 +32,7 @@ function completionOptions(options:IOptions = {download: {}, upload: {}}) {
                * 接口名：${params.funcDescription}
                * Rap 地址: ${params.rapUrl}?id=${params.repositoryId}&mod=${params.moduleId}&itf=${params.interfaceId}
                */
-              export const ${fnName} = <T extends boolean = false>(
-                data: ${paramsType},
-                options?: {
-                  proxy?: T
-                  pageError?: boolean
-                }
-              ): Promise<IResType<T, ${returnType}>> => {
-                
-                return instance(
-                  {
-                    url: '${params.requestUrl}',
-                    method: '${params.requestMethod}',
-                    data,
-                  },
-                  options
-                ) as Promise<any>
-              }
+              export const ${fnName} = createFetch<${paramsType}, ${returnType}>('${params.requestUrl}', '${params.requestMethod}')
               `,
           };
         },
@@ -57,9 +41,27 @@ function completionOptions(options:IOptions = {download: {}, upload: {}}) {
           return {
             fileName: params.moduleDescription,
             moduleHeader: `
+            // @ts-ignore
             import instance from '@/utils/request'
           
-            type IResType<T extends boolean, U extends {data: any}> = T extends true ? U['data'] : U
+            function createFetch<REQ extends Record<string, unknown>, RES extends {data: any}> (url: string, method: string) {
+              return  <T extends boolean = false>(
+                data: REQ,
+                options?: {
+                  proxy?: T
+                  pageError?: boolean
+                }
+              ): Promise<T extends true ? RES['data'] : RES> => {
+                return instance(
+                  {
+                    url,
+                    method,
+                    data,
+                  },
+                  options
+                )
+              }
+            }
           
             `,
           };
@@ -73,11 +75,16 @@ function completionOptions(options:IOptions = {download: {}, upload: {}}) {
         },
       },
       upload: {
-        // 根据函数信息 过滤出 有用信息
+
         formatFunc(params) {
+          const[_, paramsType, returnType,]  = params.body.match(/createFetch<(\w+),\s+(\w+)>/)
+
+          if(!paramsType || !returnType){
+            return null
+          }
           return {
-            returnType: params.returnType.match(/T,\s*(\w+)>>$/)[1],
-            paramsType: params.paramsType[0].data,
+            returnType,
+            paramsType,
             fetchUrl: params.comment.match(/http:\/\/rap2\.tao[\s\S]+&itf=\d+/)[0],
           };
         },
@@ -156,13 +163,11 @@ export interface IOptions {
         tokenCookie?: string;
         matchDir?: string;
         moduleId?: number
-        alias?: {
-            [x: string]: string;
-        }
+        alias?: Record<string, string>
     }
 }
 
-export  default function defineConfig(options:IOptions) {
+export  default function defineConfig(options: IOptions) {
     return  completionOptions(options)
 }
 

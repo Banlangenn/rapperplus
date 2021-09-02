@@ -23,8 +23,6 @@ export type ITypeName = {
 
 export interface IFuncInfo {
   funcName: string;
-  returnType: string;
-  paramsType: any[] | string;
   body: string;
   comment: string;
 }
@@ -56,12 +54,15 @@ export function requestFileParse(
           importType.importNames.push(node.getText(sourceFile));
         });
         const importPath = node.moduleSpecifier.getText(sourceFile);
-        importType.importPath = path.resolve(
+        const absolutePath = path.resolve(
           __dirname,
           filePath,
           '..',
           importPath.replace(/["']/g, ''),
         );
+        node.moduleSpecifier.getText(sourceFile);
+      
+        importType.importPath = /ts$/.test(absolutePath) ? absolutePath : absolutePath + '.ts'
         node.moduleSpecifier.getText(sourceFile);
       }
       importTypes.push(importType);
@@ -72,33 +73,44 @@ export function requestFileParse(
       let comment = '';
       node.getChildren(sourceFile).forEach(el => {
         if (ts.isJSDoc(el)) {
-          // const a = ts.getCommentRange(el);
-          // if (ts.isArrayTypeNode(el)) {
-          //   console.log(el);
-          // }
-          comment = el.comment as string;
+          // ts.JSDoc.comment?: string | ts.NodeArray<ts.JSDocText | ts.JSDocLink>
+          if(typeof el.comment == 'string') {
+            comment = el.comment
+          }
+   
         }
         if (ts.isVariableDeclarationList(el)) {
-          // console.log(e);
+          // console.log(el, '==============');
           el.forEachChild(declarationNode => {
             // 不知道为啥没有推断出出来是  declarationNode  还要在收窄一次类型
             if (!ts.isVariableDeclaration(declarationNode)) return;
-            declarationNode.forEachChild(arrowFunctionNode => {
-              if (ts.isArrowFunction(arrowFunctionNode)) {
-                const funcName = declarationNode.name.getText(sourceFile);
-                const paramsType = arrowFunctionNode.parameters.map(e => {
+            const funcName = declarationNode.name.getText(sourceFile);
+            declarationNode.forEachChild(functionNode => {
+              // 函数调用
+              if(ts.isCallExpression(functionNode)) {
+                console.log()
+                exportInterfaceFunc.push({
+                  funcName,
+                  comment,
+                  body: functionNode.getText(sourceFile),
+                });
+               
+              }
+
+              // 箭头函数
+              if (ts.isArrowFunction(functionNode)) {
+                const paramsType = functionNode.parameters.map(e => {
                   return {
                     //   source: printer.printNode(ts.EmitHint.Unspecified, e, sourceFile),
                     [e.name.getText(sourceFile)]: e.type.getText(sourceFile),
                   };
                 });
-                const returnType = arrowFunctionNode.type.getText(sourceFile);
+                const returnType = functionNode.type.getText(sourceFile);
+
                 exportInterfaceFunc.push({
-                  paramsType,
-                  returnType,
                   funcName,
                   comment,
-                  body: arrowFunctionNode.body.getText(sourceFile),
+                  body: functionNode.getText(sourceFile),
                 });
               }
             });
@@ -107,9 +119,9 @@ export function requestFileParse(
       });
     }
   });
-  const funcType = exportInterfaceFunc.map(formatFunc);
+  const funcTypes = exportInterfaceFunc.map(formatFunc).filter(name => name);
   return {
     importType,
-    funcType,
+    funcTypes,
   };
 }

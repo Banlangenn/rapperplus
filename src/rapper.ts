@@ -224,7 +224,7 @@ export default async function rapper(config: IOptions) {
       ${creatHeadHelpStr(rapUrl, projectId, m.id)}
         import type {
           ${tsInterfaceNames.join(',')}
-        } from './types/${fileName}.ts'
+        } from './types/${fileName}'
         ${moduleHeader}
         ${tsCodeStr}
       `;
