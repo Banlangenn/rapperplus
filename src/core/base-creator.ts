@@ -20,7 +20,7 @@ export async function createModel(interfaces: Array<Intf>, extr: ICreatorExtr, c
           .replace(/export (type|interface) Res =?/, '')
           .replace(/\s?{}\s?/g, 'Record<string, unknown>');
 
-        const { paramsType, returnType, funcMain } = config.download.requestFunc({
+        const { reqTypeName, resTypeName, funcMain } = config.download.requestFunc({
           funcDescription: itf.name,
           repositoryId: itf.repositoryId,
           moduleId: itf.moduleId,
@@ -31,10 +31,10 @@ export async function createModel(interfaces: Array<Intf>, extr: ICreatorExtr, c
         });
         const tsInterface = `
           ${creatInterfaceHelpStr(extr.rapUrl, itf)}
-          export type ${paramsType} = ${ReqType}
-          export type ${returnType} = ${ResType}
+          export type ${reqTypeName} = ${ReqType}
+          export type ${resTypeName} = ${ResType}
         `;
-        const tsInterfaceName = [paramsType, returnType];
+        const tsInterfaceName = [reqTypeName, resTypeName];
         const tsCode = `
         ${funcMain}
           `;

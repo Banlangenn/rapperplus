@@ -3,7 +3,7 @@
 
 /**
  * 接口名：获取商户列表
- * Rap 地址: http://rap2.taobao.org/repository/editor?id=284428&mod=474869&itf=2065363
+ * Rap 地址: http://rap2.taobao.org/repository/editor?id=284428&mod=474869&itf=2066499
  */
 export type IReqGoodsQbf = {
   age: string
@@ -61,7 +61,7 @@ export type IResGoodsQbf = {
 
 /**
  * 接口名：2接口
- * Rap 地址: http://rap2.taobao.org/repository/editor?id=284428&mod=474869&itf=2065364
+ * Rap 地址: http://rap2.taobao.org/repository/editor?id=284428&mod=474869&itf=2066668
  */
 export type IReqGoodsAudit = Record<string, unknown>
 export type IResGoodsAudit = {

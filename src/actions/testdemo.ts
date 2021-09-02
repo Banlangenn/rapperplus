@@ -35,12 +35,12 @@ function createFetch<REQ extends Record<string, unknown>, RES extends {data: any
 
 /**
  * 接口名：获取商户列表
- * Rap 地址: http://rap2.taobao.org/repository/editor?id=284428&mod=474869&itf=2065363
+ * Rap 地址: http://rap2.taobao.org/repository/editor?id=284428&mod=475097&itf=2066499
  */
 export const goodsQbf = createFetch<IReqGoodsQbf, IResGoodsQbf>('/c/api/1.0/approve/goods/qbf', 'GET')
 
 /**
  * 接口名：2接口
- * Rap 地址: http://rap2.taobao.org/repository/editor?id=284428&mod=474869&itf=2065364
+ * Rap 地址: http://rap2.taobao.org/repository/editor?id=284428&mod=475097&itf=2066668
  */
 export const goodsAudit = createFetch<IReqGoodsAudit, IResGoodsAudit>('/c/api/1.0/approve/goods/audit', 'GET')

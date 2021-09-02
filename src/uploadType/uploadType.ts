@@ -1,14 +1,15 @@
 import * as path from 'path';
 import * as ora from 'ora';
 import chalk from 'chalk';
-import { uploadInterface } from './fetch/index';
+import { updateInterface } from './fetch/index';
 import { generateUploadRapJson, tsTypeParse } from './tsTypeFileParse/index';
 import { requestFileParse } from './requestFileParse';
 import type { IOptions } from './mergeOptions'
 import { getFiles } from './../core/scanFile';
 const spinner = ora(chalk.grey('开始扫描本地文件'));
+spinner.start();
 // const requestFile = './../actions/testdemo.ts';
-
+// GET|POST|PUT|DELETE|OPTIONS|PATCH|HEAD
 // console.log(getFiles(path.resolve(__dirname, './../actions')));
 const typeFileJsonMap = {};
 // Blitzcrank  布里茨 机器人
@@ -19,7 +20,7 @@ function getModulesFetchParams(requestFile: string, config: IOptions) {
 
   return funcTypes
     .map(e => {
-      if (importType.importNames.includes(e.paramsType && e.returnType)) {
+      if (importType.importNames.includes(e.reqTypeName && e.resTypeName)) {
         // 在这个文件内
         if (!typeFileJsonMap[importType.importPath]) {
           typeFileJsonMap[importType.importPath] = tsTypeParse(
@@ -34,8 +35,8 @@ function getModulesFetchParams(requestFile: string, config: IOptions) {
         const rapJson = generateUploadRapJson(
           typeFileJsonMap[importType.importPath],
           interfaceId,
-          e.returnType,
-          e.paramsType,
+          e.resTypeName,
+          e.reqTypeName,
         );
         return {
           rapJson,
@@ -52,10 +53,14 @@ async function fetchAllInterface(
   }[],
   config: IOptions
 ) {
-  spinner.succeed(chalk.green(`开始同步到远程文档`));
+  spinner.start(chalk.grey(`开始同步到远程文档`));
   try {
     await Promise.all(
-      interfaces.map(el => uploadInterface(el.rapJson, el.interfaceId, config.upload.tokenCookie)),
+      // 有问题了
+      interfaces.map(el => updateInterface({
+        id: el.interfaceId,
+        properties: el.rapJson
+      }, config.upload.apiUrl, config.upload.tokenCookie)),
     );
     spinner.succeed(chalk.grey('提交成功'));
   } catch (err) {
@@ -66,7 +71,8 @@ async function fetchAllInterface(
 function getFileInterface(config: IOptions) {
   const allFile = getFiles(config.upload.matchDir);
   spinner.succeed(chalk.green(`共扫描到${allFile.length}个文件`));
-  spinner.succeed(chalk.green(`开始分析有效文件`));
+
+  spinner.start(chalk.grey(`开始分析有效文件`));
 
   const allModule = allFile
     .map(file => {
@@ -96,7 +102,7 @@ function getFileInterface(config: IOptions) {
 }
 
 export  default function uploadType(config: IOptions) {
-spinner.start();
+spinner.succeed(chalk.grey('开始扫描本地文件'));
   try {
     // console.log(path.resolve(__dirname, config.upload.matchDir))
     const fetchParams = getFileInterface(config);

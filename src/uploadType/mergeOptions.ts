@@ -22,17 +22,17 @@ function completionOptions(options:IOptions = {download: {}, upload: {}}) {
             throw new TypeError('接口路径不对,请修改合规');
           }
           const camelCaseName = `${fnName.charAt(0).toUpperCase()}${fnName.slice(1)}`;
-          const paramsType = `IReq${camelCaseName}`;
-          const returnType = `IRes${camelCaseName}`;
+          const reqTypeName = `IReq${camelCaseName}`;
+          const resTypeName = `IRes${camelCaseName}`;
           return {
-            paramsType,
-            returnType,
+            reqTypeName,
+            resTypeName,
             funcMain: `
               /**
                * 接口名：${params.funcDescription}
                * Rap 地址: ${params.rapUrl}?id=${params.repositoryId}&mod=${params.moduleId}&itf=${params.interfaceId}
                */
-              export const ${fnName} = createFetch<${paramsType}, ${returnType}>('${params.requestUrl}', '${params.requestMethod}')
+              export const ${fnName} = createFetch<${reqTypeName}, ${resTypeName}>('${params.requestUrl}', '${params.requestMethod}')
               `,
           };
         },
@@ -67,6 +67,7 @@ function completionOptions(options:IOptions = {download: {}, upload: {}}) {
           };
         },
         rap: {
+          // 拉取接口地址
           apiUrl:
             'http://rap2api.taobao.org/repository/get?id=284428&token=TTDNJ7gvXgy9R-9axC-7_mbi4ZxEPlp6',
           /** rap 前端地址，默认是 http://rap2.taobao.org */
@@ -77,14 +78,14 @@ function completionOptions(options:IOptions = {download: {}, upload: {}}) {
       upload: {
 
         formatFunc(params) {
-          const[_, paramsType, returnType,]  = params.body.match(/createFetch<(\w+),\s+(\w+)>/)
+          const[_, reqTypeName, resTypeName,]  = params.body.match(/createFetch<(\w+),\s+(\w+)>/)
 
-          if(!paramsType || !returnType){
+          if(!reqTypeName || !resTypeName){
             return null
           }
           return {
-            returnType,
-            paramsType,
+            resTypeName,
+            reqTypeName,
             fetchUrl: params.comment.match(/http:\/\/rap2\.tao[\s\S]+&itf=\d+/)[0],
           };
         },
@@ -97,6 +98,7 @@ function completionOptions(options:IOptions = {download: {}, upload: {}}) {
           'aliyungf_tc=ed5eefe153b8cd6d7a9b0ea3f4aaaa92eaf022825c19857a2b435978264d17d8; koa.sid=MzB5TnJaGWkQK6DL7MAFt_qp18DfQ41Q; koa.sid.sig=ujNSfud5538kuHWTx0zYRHXnDSU',
         //会递归遍历啊所有附和 当前文件的 文件
         matchDir: './src/actions',
+        apiUrl: 'http://rap2api.taobao.org'
       }
     }
 
@@ -138,8 +140,8 @@ export interface IOptions {
             requestMethod: string;
             rapUrl: string;
         }) => {
-            paramsType: string;
-            returnType: string;
+            reqTypeName: string;
+            resTypeName: string;
             funcMain: string
         };
         requestModule?: (params: {
@@ -163,6 +165,7 @@ export interface IOptions {
         tokenCookie?: string;
         matchDir?: string;
         moduleId?: number
+        apiUrl?: string,
         alias?: Record<string, string>
     }
 }

@@ -16,8 +16,8 @@ interface IImportTypes {
 }
 
 export type ITypeName = {
-  returnType: string;
-  paramsType: string;
+  resTypeName: string;
+  reqTypeName: string;
   fetchUrl: string;
 } | null;
 
@@ -68,6 +68,26 @@ export function requestFileParse(
       importTypes.push(importType);
     }
 
+    // 导出的 函数定义
+    if(ts.isFunctionDeclaration(node)  && isNodeExported(node)) {
+      let comment = '';
+      node.getChildren(sourceFile).forEach(el => {
+        if (ts.isJSDoc(el)) {
+          // ts.JSDoc.comment?: string | ts.NodeArray<ts.JSDocText | ts.JSDocLink>
+          if(typeof el.comment == 'string') {
+            comment = el.comment
+          }
+   
+        }
+      })
+      exportInterfaceFunc.push({
+        funcName: node.name.getText(sourceFile),
+        comment,
+        body:  node.getText(sourceFile),
+      });
+      return
+    }
+ 
     // 导出的 变量列表
     if (ts.isVariableStatement(node) && isNodeExported(node)) {
       let comment = '';
@@ -87,31 +107,13 @@ export function requestFileParse(
             const funcName = declarationNode.name.getText(sourceFile);
             declarationNode.forEachChild(functionNode => {
               // 函数调用
-              if(ts.isCallExpression(functionNode)) {
-                console.log()
+              if(ts.isCallExpression(functionNode) || ts.isArrowFunction(functionNode)) {
                 exportInterfaceFunc.push({
                   funcName,
                   comment,
                   body: functionNode.getText(sourceFile),
                 });
                
-              }
-
-              // 箭头函数
-              if (ts.isArrowFunction(functionNode)) {
-                const paramsType = functionNode.parameters.map(e => {
-                  return {
-                    //   source: printer.printNode(ts.EmitHint.Unspecified, e, sourceFile),
-                    [e.name.getText(sourceFile)]: e.type.getText(sourceFile),
-                  };
-                });
-                const returnType = functionNode.type.getText(sourceFile);
-
-                exportInterfaceFunc.push({
-                  funcName,
-                  comment,
-                  body: functionNode.getText(sourceFile),
-                });
               }
             });
           });
