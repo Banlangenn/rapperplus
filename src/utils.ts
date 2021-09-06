@@ -112,6 +112,16 @@ export function getOldProjectId(rappperPath: string): string | undefined {
   }
 }
 
+export function getRapModuleId(content: string) {
+  try {
+    const projectIdStr = content.split('\n')[1] || '';
+    const matchArr = projectIdStr.match(/\/\*\sRap仓库ModuleId:\s(\S*)\s\*\//) || [];
+    return Number(matchArr[1]);
+  } catch (err) {
+    return undefined;
+  }
+}
+
 /** 模板文件覆盖确认 */
 export async function templateFilesOverwriteConfirm() {
   const question = [
@@ -165,4 +175,16 @@ export async function latestVersion(packageName: string, isBeta?: boolean) {
       return versionsList[i];
     }
   }
+}
+
+export function updateFileContent(filePath, content) {
+  return new Promise((resolve, reject) => {
+    fs.writeFile(filePath, content, err => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      resolve('');
+    });
+  });
 }

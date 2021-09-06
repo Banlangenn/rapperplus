@@ -1,12 +1,12 @@
 const fetch = require('node-fetch');
-
+import { URL } from 'url';
 // 更新接口
 export function updateInterface(
   params: { properties: any; id: number },
-  rapUrl: string,
+  apiUrl: string,
   cookie: string,
 ): Promise<any> {
-  return fetch(`${rapUrl}/properties/update?itf=${params.id}`, {
+  return fetch(`${new URL(apiUrl).origin}/properties/update?itf=${params.id}`, {
     headers: {
       'content-type': 'application/json',
       cookie,
@@ -25,18 +25,19 @@ export function updateInterface(
     })
     .then(e => {
       if (e.isOk || e.data) {
+        return e.data;
       } else {
-        throw new Error(e.errMsg);
+        throw e.errMsg;
       }
     })
 
     .catch(err => {
-      throw new Error(err);
+      throw err;
     });
 }
 
 // 创建接口
-export function createInterface(
+export async function createInterface(
   params: {
     name: string;
     url: string;
@@ -45,10 +46,10 @@ export function createInterface(
     moduleId: number;
     repositoryId: number;
   },
-  rapUrl: string,
+  apiUrl: string,
   cookie: string,
 ) {
-  return fetch(`${rapUrl}/interface/create`, {
+  const data = await fetch(`${new URL(apiUrl).origin}/interface/create`, {
     headers: {
       'content-type': 'application/json',
       cookie,
@@ -63,17 +64,21 @@ export function createInterface(
       return e.json();
     })
     .then(e => {
-      return e;
+      if (e.isOk || e.data) {
+        return e.data;
+      } else {
+        throw e.errMsg;
+      }
     })
-
     .catch(err => {
-      throw new Error(err);
+      throw err;
     });
+  return data;
 }
 
 // 删除接口
-export function deleteInterface({ id }: { id: number }, rapUrl: string, cookie: string) {
-  return fetch(`${rapUrl}/interface/remove?id=${id}`, {
+export function deleteInterface({ id }: { id: number }, apiUrl: string, cookie: string) {
+  return fetch(`${new URL(apiUrl).origin}/interface/remove?id=${id}`, {
     headers: {
       cookie,
     },
@@ -97,8 +102,8 @@ export function deleteInterface({ id }: { id: number }, rapUrl: string, cookie: 
     });
 }
 // 删除模块
-export function deleteModule({ id }: { id: number }, rapUrl: string, cookie: string) {
-  fetch(`${rapUrl}/module/remove?id=${id}`, {
+export function deleteModule({ id }: { id: number }, apiUrl: string, cookie: string) {
+  fetch(`${new URL(apiUrl).origin}/module/remove?id=${id}`, {
     headers: {
       'content-type': 'application/json',
       cookie,
@@ -127,13 +132,13 @@ export function deleteModule({ id }: { id: number }, rapUrl: string, cookie: str
 export function createModule(
   params: {
     description: string;
-    name: number;
-    repositoryId: string;
+    name: string;
+    repositoryId: number;
   },
-  rapUrl,
+  apiUrl,
   cookie,
 ): Promise<any> {
-  return fetch(`${rapUrl}/module/create`, {
+  return fetch(`${new URL(apiUrl).origin}/module/create`, {
     headers: {
       'content-type': 'application/json',
       cookie,
@@ -145,7 +150,7 @@ export function createModule(
       if (e.status !== 200) {
         throw new Error(e.statusText);
       }
-      return e.json();
+      return e.json().data;
     })
     .then(e => {
       return e;

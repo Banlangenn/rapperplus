@@ -60,9 +60,9 @@ import * as program from 'commander';
     const rapperConfig = {
       apiUrl: program.apiUrl,
       rapUrl: program.rapUrl,
-      rapperPath: program.rapperPath || config.download.rap.rapperPath,
+      rapperPath: program.rapperPath || config.rap.rapperPath,
     };
-    config.download.rap = rapperConfig;
+    config.rap = rapperConfig;
   }
 
   if (isUpload) {

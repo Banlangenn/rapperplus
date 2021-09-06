@@ -66,39 +66,41 @@ function completionOptions(options:IOptions = {download: {}, upload: {}}) {
             `,
           };
         },
-        rap: {
-          // 拉取接口地址
-          apiUrl:
-            'http://rap2api.taobao.org/repository/get?id=284428&token=TTDNJ7gvXgy9R-9axC-7_mbi4ZxEPlp6',
-          /** rap 前端地址，默认是 http://rap2.taobao.org */
-          rapUrl: 'http://rap2.taobao.org',
-          rapperPath: './src/actions',
-        },
+      },
+      rap: {
+        // 拉取接口地址
+        apiUrl:
+          'http://rap2api.taobao.org/repository/get?id=284428&token=TTDNJ7gvXgy9R-9axC-7_mbi4ZxEPlp6',
+        /** rap 前端地址，默认是 http://rap2.taobao.org */
+        rapUrl: 'http://rap2.taobao.org',
+        rapperPath: './src/actions',
+        tokenCookie:
+        'aliyungf_tc=ed5eefe153b8cd6d7a9b0ea3f4aaaa92eaf022825c19857a2b435978264d17d8; koa.sid=oH6bicTb16BOTnZO7fFRBC3rEZ7vE1VI; koa.sid.sig=i_5lxqH54ByrLD8fNo_uhMyjR4c',
+        repositoryId: 284428,
       },
       upload: {
 
         formatFunc(params) {
-          const[_, reqTypeName, resTypeName,]  = params.body.match(/createFetch<(\w+),\s+(\w+)>/)
+          // createFetch<IReqGoodsQbf, IResGoodsQbf>('/c/api/1.0/approve/goods/qbf', 'GET')
+          const[_, reqTypeName, resTypeName, reqUrl, reqMethod]  = params.body.match(/createFetch<(\w+),\s+(\w+)>\(['|"]([\s|\S]+)['|"], ['|"]([a-zA-Z]+)['|"]\)/)
 
           if(!reqTypeName || !resTypeName){
             return null
           }
+          const matchInterfaceId= params.comment.match(/http:\/\/rap2\.tao[\s\S]+&itf=(\d+)/)
           return {
             resTypeName,
             reqTypeName,
-            fetchUrl: params.comment.match(/http:\/\/rap2\.tao[\s\S]+&itf=\d+/)[0],
+            // 如果返回 null '' undefined 0 等 就会被认为是新的接口，会触发上rap操作
+            interfaceId: matchInterfaceId? Number(matchInterfaceId[1]) : null,
+            reqUrl: reqUrl,
+            reqMethod: reqMethod,
           };
         },
         // webpack 别名 alias 绝对路径
         alias: {
           '@': './src',
         },
-        // 上传 token
-        tokenCookie:
-          'aliyungf_tc=ed5eefe153b8cd6d7a9b0ea3f4aaaa92eaf022825c19857a2b435978264d17d8; koa.sid=MzB5TnJaGWkQK6DL7MAFt_qp18DfQ41Q; koa.sid.sig=ujNSfud5538kuHWTx0zYRHXnDSU',
-        //会递归遍历啊所有附和 当前文件的 文件
-        matchDir: './src/actions',
-        apiUrl: 'http://rap2api.taobao.org'
       }
     }
 
@@ -111,14 +113,18 @@ function completionOptions(options:IOptions = {download: {}, upload: {}}) {
         ...(options.upload || {}),
         ...defaultOptions.upload
     }
+    _options.rap = {
+      ...(options.upload || {}),
+      ...defaultOptions.rap
+  }
 
     const rootPath = searchRootPath()
     if(!rootPath) {
       process.exit(1)
     }
   
-    _options.upload.matchDir = path.resolve(rootPath, _options.upload.matchDir)
-    _options.download.rap.rapperPath = path.resolve(rootPath, _options.download.rap.rapperPath)
+    // _options.upload.matchDir = path.resolve(rootPath, _options.upload.matchDir)
+    _options.rap.rapperPath = path.resolve(rootPath, _options.rap.rapperPath)
     const alias = _options.upload.alias
     for(const v in alias) {
       _options.upload.alias.v = path.resolve(rootPath, alias[v])
@@ -154,19 +160,20 @@ export interface IOptions {
             moduleHeader: string;
         };
         moduleId?: number;
-        rap?: {
-            apiUrl: string;
-            rapUrl: string;
-            rapperPath: string;
-        }
     }
+    rap?: {
+      // 拉取接口地址
+      apiUrl?: string;
+      /** rap 前端地址，默认是 http://rap2.taobao.org */
+      rapUrl?:string;
+      rapperPath?: string;
+      tokenCookie?:string;
+      repositoryId?: number,
+    },
      upload?: {
         formatFunc?: (params: IFuncInfo) => ITypeName;
-        tokenCookie?: string;
-        matchDir?: string;
-        moduleId?: number
-        apiUrl?: string,
-        alias?: Record<string, string>
+        moduleId?: number;
+        alias?: Record<string, string>;
     }
 }
 

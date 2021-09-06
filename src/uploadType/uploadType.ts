@@ -1,11 +1,15 @@
 import * as path from 'path';
+
 import * as ora from 'ora';
 import chalk from 'chalk';
-import { updateInterface } from './fetch/index';
+import { updateInterface, createInterface, createModule } from './fetch/index';
 import { generateUploadRapJson, tsTypeParse } from './tsTypeFileParse/index';
 import { requestFileParse } from './requestFileParse';
 import type { IOptions } from './mergeOptions'
 import { getFiles } from './../core/scanFile';
+import { updateFileContent } from './../utils'
+// import { format } from 'json-schema-to-typescript/dist/src/formatter';
+// import { DEFAULT_OPTIONS } from 'json-schema-to-typescript';
 const spinner = ora(chalk.grey('开始扫描本地文件'));
 spinner.start();
 // const requestFile = './../actions/testdemo.ts';
@@ -16,102 +20,176 @@ const typeFileJsonMap = {};
 
 function getModulesFetchParams(requestFile: string, config: IOptions) {
 
-  const { importType, funcTypes } = requestFileParse(requestFile, config.upload.formatFunc, config);
+  const { importType, funcTypes, fileInfo } = requestFileParse(requestFile, config.upload.formatFunc, config);
+  // 检查出来没有附符合的方法
+  if(funcTypes.length === 0) return null
+  let { moduleId } = fileInfo
+  const content = fileInfo.content
+  let newContent = ''
+    // 如果返回
+    // outputFile.content = format(content, DEFAULT_OPTIONS)
 
-  return funcTypes
-    .map(e => {
-      if (importType.importNames.includes(e.reqTypeName && e.resTypeName)) {
-        // 在这个文件内
-        if (!typeFileJsonMap[importType.importPath]) {
-          typeFileJsonMap[importType.importPath] = tsTypeParse(
-            path.resolve(__dirname, importType.importPath),
-          );
+    // 要不要 把 请求全部内敛进来
+    const execute =  async () => {
+      const verifyFetchParams = funcTypes.filter(e => {
+        if(importType.importNames.includes(e.reqTypeName)&&importType.importNames.includes(e.resTypeName)) {
+          return true
         }
-
-        // id=284428&mod=459499&itf=2006088
-        const urlMatch = e.fetchUrl.match(/&mod=(\d+)&itf=(\d+)$/);
-        const interfaceId = Number(urlMatch[2]);
-        const moduleId = Number(urlMatch[1]);
-        const rapJson = generateUploadRapJson(
-          typeFileJsonMap[importType.importPath],
-          interfaceId,
-          e.resTypeName,
-          e.reqTypeName,
-        );
-        return {
-          rapJson,
-          interfaceId,
-          moduleId,
-        };
+        console.log(`导出的 ${importType.importNames}文件内[${e.reqTypeName}, ${e.resTypeName}] 没有这个接口, 同步将会忽略掉`)
+        return false
+      })
+      // 有模块请求 创建模块请求
+      interface ICreateInterface {
+        reqUrl: string;
+        reqMethod: string;
+        funcName: string;
+        interfaceId?: number;
+        body: string;
+        resTypeName: string;
+        reqTypeName: string;
       }
-    });
+      const containInterface: ICreateInterface[] = []
+      const noInterface: ICreateInterface[] = []
+        try {
+          if (!moduleId) {
+            const { modId } = await createModule({
+              description: fileInfo.fileName,
+              name: fileInfo.fileName,
+              repositoryId: config.rap.repositoryId
+            }, config.rap.apiUrl, config.rap.tokenCookie)
+            //  修改 content
+
+            newContent = `Rap仓库ModuleId: ${modId} \n` + (newContent ||content)
+
+            moduleId = modId
+            // 如果 没有 moduleId  就认为这个文件新接口
+          }
+         
+          verifyFetchParams.forEach(element => {
+              if(element.interfaceId) {
+                containInterface.push(element)
+              } else {
+                noInterface.push(element)
+              }
+          });
+          const containInter = await Promise.all(noInterface.map(async e => {
+            const result = await createInterface({
+             name: e.funcName,
+             url: e.reqUrl,
+             method: e.reqMethod,
+             description: e.funcName,
+             moduleId,
+             repositoryId: config.rap.repositoryId
+           }, config.rap.apiUrl, config.rap.tokenCookie)
+             e.interfaceId = result.itf.id
+            //  修改 content
+           const reg = new RegExp(`(${e.body.replace(/([()])/g,'\\$1')})`)
+           newContent = (newContent || content).replace(reg,
+`/**
+* 接口名：${e.funcName}
+* Rap 地址: ${config.rap.rapUrl}/repository/editor?id=${config.rap.repositoryId}&mod=${moduleId}&itf=${e.interfaceId}
+*/
+$1`
+)
+            // interface 第一行的位置
+            return e
+           })) 
+           containInterface.push(...containInter)
+        } catch (error) {
+          //  先把本地修改掉 在 抛错
+          if(newContent) {
+            updateFileContent(fileInfo.filePath, newContent)
+          }
+          throw error
+        }
+        if(newContent) {
+          await updateFileContent(fileInfo.filePath, newContent)
+        }
+      // console.log('开始更接口', containInterface)
+      await Promise.all(
+        // 有问题了
+        containInterface.map(el =>{
+          if (!typeFileJsonMap[importType.importPath]) {
+            typeFileJsonMap[importType.importPath] = tsTypeParse(
+              path.resolve(__dirname, importType.importPath),
+            );
+          }
+          const properties =  generateUploadRapJson(
+            typeFileJsonMap[importType.importPath],
+            el.interfaceId,
+            el.resTypeName,
+            el.reqTypeName,
+          );
+          return updateInterface({
+            id: el.interfaceId,
+            properties
+          }, config.rap.apiUrl, config.rap.tokenCookie)
+        })
+      );
+    }
+
+    return {
+      execute,
+      name: fileInfo.fileName,
+      moduleId,
+    }
 }
-async function fetchAllInterface(
-  interfaces: {
-    rapJson: any[];
-    interfaceId: number;
-  }[],
-  config: IOptions
-) {
-  spinner.start(chalk.grey(`开始同步到远程文档`));
-  try {
-    await Promise.all(
-      // 有问题了
-      interfaces.map(el => updateInterface({
-        id: el.interfaceId,
-        properties: el.rapJson
-      }, config.upload.apiUrl, config.upload.tokenCookie)),
-    );
-    spinner.succeed(chalk.grey('提交成功'));
-  } catch (err) {
-    spinner.fail(chalk.red(`同步失败！${err}`));
-  }
-}
+
+
+
 
 function getFileInterface(config: IOptions) {
-  const allFile = getFiles(config.upload.matchDir);
+  const allFile = getFiles(config.rap.rapperPath);
   spinner.succeed(chalk.green(`共扫描到${allFile.length}个文件`));
 
   spinner.start(chalk.grey(`开始分析有效文件`));
 
   const allModule = allFile
-    .map(file => {
-      return getModulesFetchParams(file, config);
+    .map(filePath => {
+      const extName = path.extname(filePath);
+      if (!['.ts', '.js', '.vue', '.es'].includes(extName)) {
+        return null
+      }
+      return getModulesFetchParams(filePath, config);
     })
     .filter(e => {
-      if (e.length === 0) {
+      if (!e) {
         return false;
       }
       // 上传  modId
       if (config.upload.moduleId) {
-        if (config.upload.moduleId === e[0].moduleId) {
+        if (config.upload.moduleId === e.moduleId) {
           return true;
         } else {
           return false;
         }
       }
-
       return true;
     });
 
-  const interfaces = allModule.reduce((p, n) => {
-    return p.concat(n);
+  const interfaces = allModule.map((el) => {
+    return el.execute
   }, []);
-  spinner.succeed(chalk.green(`将要提交${allModule.length}个模块, ${interfaces.length}个接口`));
+
+  // 数据统计 必须要有的 先放一下
+  spinner.succeed(chalk.green(`将要提交${allModule.length}个模块`));
   return interfaces;
 }
 
-export  default function uploadType(config: IOptions) {
+export default  async function uploadType(config: IOptions) {
 spinner.succeed(chalk.grey('开始扫描本地文件'));
-  try {
+  // try {
     // console.log(path.resolve(__dirname, config.upload.matchDir))
     const fetchParams = getFileInterface(config);
     if(fetchParams.length === 0 ) {
       spinner.fail('没有可提交接口');
       return
     }
-    fetchAllInterface(fetchParams, config);
-  } catch (error) {
-    spinner.fail('文件解析失败， 请检查path 是否正确');
-  }
+    spinner.start(chalk.grey(`开始同步到远程文档`));
+    await Promise.all(fetchParams.map(e => e()))
+    // fetchAllInterface(fetchParams, config);
+    spinner.succeed(chalk.grey('提交成功'));
+  // } catch (err) {
+  //   spinner.fail(chalk.red(`同步失败！${err}`));
+  // }
 }

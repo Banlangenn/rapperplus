@@ -94,7 +94,7 @@ export default async function rapper(config: IOptions) {
   // /** rap 前端地址，默认是 http://rap2.taobao.org */
   // rapUrl = 'http://rap2.taobao.org',
   // rapperPath = './actions';
-  let { apiUrl, rapUrl, rapperPath } = config.download.rap;
+  let { apiUrl, rapUrl, rapperPath } = config.rap;
   // const rapperVersion: string = packageJson.version;
   // console.log(`当前rapper版本: ${chalk.grey(rapperVersion)}`);
   const spinner = ora(chalk.grey('rapper: 开始检查版本'));
