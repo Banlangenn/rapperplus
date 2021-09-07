@@ -39,13 +39,23 @@ export interface IFuncInfo {
   // 三种函数 定义 会被选中到导出
   funcType: 'CallExpression'| 'FunctionDeclaration'| 'ArrowFunction'
 }
-
+function getAllLeadingComments(node: ts.Node, sourceFile: ts.SourceFile):
+    ReadonlyArray<Readonly<ts.CommentRange&{text: string}>> {
+  const allRanges: Array<Readonly<ts.CommentRange&{text: string}>> = [];
+  const nodeText = node.getFullText(sourceFile);
+  const cr = ts.getLeadingCommentRanges(nodeText, 0);
+  if (cr) allRanges.push(...cr.map(c => ({...c, text: nodeText.substring(c.pos, c.end)})));
+  const synthetic = ts.getSyntheticLeadingComments(node);
+  if (synthetic) allRanges.push(...synthetic);
+  return allRanges;
+}
 export function requestFileParse(
   filePath: string,
   formatFunc: (params: IFuncInfo) => ITypeName,
   config: IOptions,
 ) {
-  const program = ts.createProgram([filePath], { allowJs: false });
+  const program = ts.createProgram([filePath], { allowJs: false, noResolve: true,
+    target: ts.ScriptTarget.Latest, });
   const sourceFile = program.getSourceFile(filePath);
 // console.log(sourceFile.getText(sourceFile), 'sourceFile')
   const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
@@ -69,6 +79,9 @@ export function requestFileParse(
     content,
     moduleId: getRapModuleId(content)
   }
+
+
+
   ts.forEachChild(sourceFile, node => {
     if (ts.isImportDeclaration(node) && node.importClause.isTypeOnly) {
       //  只是查了  isNamedImports   还有一种 nameSpaceImport
@@ -91,7 +104,6 @@ export function requestFileParse(
       }
       importTypes.push(importType);
     }
-
     // 导出的 函数定义
     if(ts.isFunctionDeclaration(node)  && isNodeExported(node)) {
       let comment = '';
@@ -101,9 +113,9 @@ export function requestFileParse(
           if(typeof el.comment == 'string') {
             comment = el.comment
           }
-   
         }
       })
+
       exportInterfaceFunc.push({
         funcName: node.name.getText(sourceFile),
         comment,
@@ -115,15 +127,9 @@ export function requestFileParse(
  
     // 导出的 变量列表
     if (ts.isVariableStatement(node) && isNodeExported(node)) {
-      let comment = '';
+      const comments = getAllLeadingComments(node, sourceFile) || []
+      const comment = comments[comments.length - 1]?.text ?? ''
       node.getChildren(sourceFile).forEach(el => {
-        if (ts.isJSDoc(el)) {
-          // ts.JSDoc.comment?: string | ts.NodeArray<ts.JSDocText | ts.JSDocLink>
-          if(typeof el.comment == 'string') {
-            comment = el.comment
-          }
-   
-        }
         if (ts.isVariableDeclarationList(el)) {
           // console.log(el, '==============');
           el.forEachChild(declarationNode => {
@@ -152,11 +158,12 @@ export function requestFileParse(
   const funcTypes = exportInterfaceFunc.map(formatFunc).map((data, index) => {
     // 把 body 重新赋值上去，放在内部  避免 config  设置无用字段 
     if(data) {
-      const { body, funcName } = exportInterfaceFunc[index]
+      const { body, funcName, comment} = exportInterfaceFunc[index]
       return {
         ...data,
         body,
-        funcName
+        funcName,
+        comment
       }
     }
     return null

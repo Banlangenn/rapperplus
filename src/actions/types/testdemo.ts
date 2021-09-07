@@ -37,7 +37,7 @@ export type IResGoodsQbf = {
     array: {
       /**
        * n名称
-       * @value /@cname
+       * @value #cname
        */
       name: string
       /**
@@ -65,5 +65,5 @@ export type IResGoodsQbf = {
  */
 export type IReqGoodsAudit = Record<string, unknown>
 export type IResGoodsAudit = {
-  b: string
+  cb: string
 }

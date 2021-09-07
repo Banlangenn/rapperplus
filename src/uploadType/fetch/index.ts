@@ -129,7 +129,7 @@ export function deleteModule({ id }: { id: number }, apiUrl: string, cookie: str
 }
 
 // 创建模块
-export function createModule(
+export async function createModule(
   params: {
     description: string;
     name: string;
@@ -138,7 +138,7 @@ export function createModule(
   apiUrl,
   cookie,
 ): Promise<any> {
-  return fetch(`${new URL(apiUrl).origin}/module/create`, {
+  const data = await fetch(`${new URL(apiUrl).origin}/module/create`, {
     headers: {
       'content-type': 'application/json',
       cookie,
@@ -150,15 +150,20 @@ export function createModule(
       if (e.status !== 200) {
         throw new Error(e.statusText);
       }
-      return e.json().data;
+      return e.json();
     })
     .then(e => {
-      return e;
+      if (e.isOk || e.data) {
+        return e.data;
+      } else {
+        throw e.errMsg;
+      }
     })
 
     .catch(err => {
       throw new Error(err);
     });
+  return data;
 }
 
 // type MatchPair<S extends string> = S extends `/${infer A}/${infer B}` ? [A, B] : unknown;

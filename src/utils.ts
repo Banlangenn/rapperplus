@@ -114,8 +114,12 @@ export function getOldProjectId(rappperPath: string): string | undefined {
 
 export function getRapModuleId(content: string) {
   try {
-    const projectIdStr = content.split('\n')[1] || '';
-    const matchArr = projectIdStr.match(/\/\*\sRap仓库ModuleId:\s(\S*)\s\*\//) || [];
+    const projectIdStr = content.split('\n');
+    const matchArr =
+      projectIdStr
+        .slice(0, 5)
+        .join()
+        .match(/\/\*\sRap仓库ModuleId:\s(\S*)\s\*\//) ?? [];
     return Number(matchArr[1]);
   } catch (err) {
     return undefined;

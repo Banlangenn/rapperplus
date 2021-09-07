@@ -47,19 +47,20 @@ function getModulesFetchParams(requestFile: string, config: IOptions) {
         body: string;
         resTypeName: string;
         reqTypeName: string;
+        comment: string;
       }
       const containInterface: ICreateInterface[] = []
       const noInterface: ICreateInterface[] = []
         try {
           if (!moduleId) {
-            const { modId } = await createModule({
+            const { id: modId } = await createModule({
               description: fileInfo.fileName,
               name: fileInfo.fileName,
               repositoryId: config.rap.repositoryId
             }, config.rap.apiUrl, config.rap.tokenCookie)
             //  修改 content
 
-            newContent = `Rap仓库ModuleId: ${modId} \n` + (newContent ||content)
+            newContent = `/* Rap仓库ModuleId: ${modId} */ \n` + (newContent ||content)
 
             moduleId = modId
             // 如果 没有 moduleId  就认为这个文件新接口
@@ -73,8 +74,16 @@ function getModulesFetchParams(requestFile: string, config: IOptions) {
               }
           });
           const containInter = await Promise.all(noInterface.map(async e => {
+
+            let interfaceName = e.funcName
+            if(e.comment) {
+              const commentMatch = e.comment.match(/\s*\/\/\s*([\s|\S]+)$/)
+              if (commentMatch) {
+                interfaceName = commentMatch[1]
+              }
+            }
             const result = await createInterface({
-             name: e.funcName,
+             name: interfaceName,
              url: e.reqUrl,
              method: e.reqMethod,
              description: e.funcName,
@@ -83,10 +92,18 @@ function getModulesFetchParams(requestFile: string, config: IOptions) {
            }, config.rap.apiUrl, config.rap.tokenCookie)
              e.interfaceId = result.itf.id
             //  修改 content
-           const reg = new RegExp(`(${e.body.replace(/([()])/g,'\\$1')})`)
-           newContent = (newContent || content).replace(reg,
+          //  注释
+
+          if(interfaceName !== e.funcName) {
+            const commentReg = new RegExp(`(${e.comment.replace(/([()])/g,'\\$1')})`)
+            newContent = (newContent || content).replace(commentReg, '')
+          }
+
+       
+           const bodyReg = new RegExp(`(${e.body.replace(/([()])/g,'\\$1')})`)
+           newContent = (newContent || content).replace(bodyReg,
 `/**
-* 接口名：${e.funcName}
+* 接口名：${interfaceName}
 * Rap 地址: ${config.rap.rapUrl}/repository/editor?id=${config.rap.repositoryId}&mod=${moduleId}&itf=${e.interfaceId}
 */
 $1`
@@ -126,6 +143,8 @@ $1`
           }, config.rap.apiUrl, config.rap.tokenCookie)
         })
       );
+
+      return containInterface.length
     }
 
     return {
@@ -167,13 +186,13 @@ function getFileInterface(config: IOptions) {
       return true;
     });
 
-  const interfaces = allModule.map((el) => {
+  const updateInterfaces = allModule.map((el) => {
     return el.execute
   }, []);
 
   // 数据统计 必须要有的 先放一下
   spinner.succeed(chalk.green(`将要提交${allModule.length}个模块`));
-  return interfaces;
+  return updateInterfaces;
 }
 
 export default  async function uploadType(config: IOptions) {
@@ -186,8 +205,9 @@ spinner.succeed(chalk.grey('开始扫描本地文件'));
       return
     }
     spinner.start(chalk.grey(`开始同步到远程文档`));
-    await Promise.all(fetchParams.map(e => e()))
-    // fetchAllInterface(fetchParams, config);
+    const counts = await Promise.all(fetchParams.map(e => e()))
+    const total = counts.reduce((c,n) =>c + n, 0)
+    spinner.succeed(chalk.green(`一共更新了${total}个接口`));
     spinner.succeed(chalk.grey('提交成功'));
   // } catch (err) {
   //   spinner.fail(chalk.red(`同步失败！${err}`));
