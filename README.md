@@ -79,10 +79,17 @@ $ npx rapper-plus --d --m 34xx
     }
     ```
 
+
+## 增量更新实现
+* 每次更新会给文件头部 加一个 MD5值
+* 初始化会检查合法的文件（符合formatFunc  结构的文件） MD5值 对不住
+* 去解析当前恩建以及 依赖当前文件的文件
+* 提交变更的模块接口（文件级检查）,做不到方法级检查
 ## config 接口类型
 ```ts
-export interface IOptions {
-    download?: {
+
+interface IConfig {
+    download: {
         requestFunc?: (params: {
             funcDescription: string;
             repositoryId: number;
@@ -92,8 +99,8 @@ export interface IOptions {
             requestMethod: string;
             rapUrl: string;
         }) => {
-            paramsType: string;
-            returnType: string;
+            reqTypeName: string;
+            resTypeName: string;
             funcMain: string
         };
         requestModule?: (params: {
@@ -106,22 +113,26 @@ export interface IOptions {
             moduleHeader: string;
         };
         moduleId?: number;
-        rap?: {
-            apiUrl: string;
-            rapUrl: string;
-            rapperPath: string;
-        }
     }
-     upload?: {
+    rapper: {
+      // 拉取接口地址
+      apiUrl?: string;
+      /** rap 前端地址，默认是 http://rap2.taobao.org */
+      rapUrl?: string;
+      matchDir?: string;
+      tokenCookie?:string;
+      repositoryId?: number,
+    },
+     upload: {
         formatFunc?: (params: IFuncInfo) => ITypeName;
-        tokenCookie?: string;
-        matchDir?: string;
-        moduleId?: number
-        alias?: {
-            [x: string]: string;
-        }
+        moduleId?: number;
+        alias?: Record<string, string>;
     }
+    __completion?: boolean
 }
+
+
+export type IOptions = Partial<IConfig>
 
 ```
 
@@ -217,3 +228,4 @@ export interface IOptions {
         matchDir: './src/actions',
       }
     }
+    ```
