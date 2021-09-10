@@ -1,11 +1,12 @@
-/* md5: d228c21612b7a472df4e286eddf50674 */
+/* md5: e8f35813847faeb59c5f850a1d53f247 */
 /* eslint-disable */
 
 /**
  * 接口名：获取商户列表
  * Rap 地址: http://rap2.taobao.org/repository/editor?id=284428&mod=474869&itf=2066499
+ * 
  */
-export type IReqGoodsQbf = {
+export type aa = {
   age: string
   sex?: string
   /**

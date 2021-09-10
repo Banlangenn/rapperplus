@@ -181,14 +181,45 @@ export async function latestVersion(packageName: string, isBeta?: boolean) {
   }
 }
 
+export function getContentMd5(content: string) {
+  const md5FlagReg = /^\/\*\smd5:\s(\S*)\s\*\/\n/;
+  const oldMd5 = content.match(md5FlagReg);
+  const _content = oldMd5 ? content.replace(md5FlagReg, '') : content;
+  return {
+    oldMd5: oldMd5 ? oldMd5[1] : null,
+    content: _content,
+    newMd5: getMd5(_content),
+  };
+}
 export function updateFileContent(filePath, content) {
+  // `/* md5: ${getMd5(item.content)} */\n${item.content}
+  const contentMd5 = getContentMd5(content);
+  const _content = `/* md5: ${contentMd5.newMd5} */\n${contentMd5.content}`;
+  // contentArr[0].match(/\/\*\smd5:\s(\S*)\s\*\//) || [];
   return new Promise((resolve, reject) => {
-    fs.writeFile(filePath, content, err => {
+    fs.writeFile(filePath, _content, err => {
       if (err) {
         reject(err);
         return;
       }
-      resolve('');
+      resolve({
+        status: 'ok',
+      });
+    });
+  });
+}
+
+export function promiseReadFile(path: string): Promise<{ content: string; path: string }> {
+  return new Promise((resolve, reject) => {
+    fs.readFile(path, 'utf-8', (err, data) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      resolve({
+        content: data,
+        path,
+      });
     });
   });
 }

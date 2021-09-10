@@ -60,14 +60,14 @@ import * as program from 'commander';
     const rapperConfig = {
       apiUrl: program.apiUrl,
       rapUrl: program.rapUrl,
-      rapperPath: program.rapperPath || config.rap.rapperPath,
+      matchDir: program.rapperPath || config.rapper.matchDir,
     };
-    config.rap = rapperConfig;
+    config.rapper = rapperConfig;
   }
 
   if (isUpload) {
-    rapper(config);
+    rapper(defineConfig(config));
   } else {
-    uploadType(config);
+    uploadType(defineConfig(config));
   }
 })();

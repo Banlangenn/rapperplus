@@ -1,5 +1,4 @@
 import * as path from 'path';
-
 import * as ora from 'ora';
 import chalk from 'chalk';
 import { updateInterface, createInterface, createModule } from './fetch/index';
@@ -7,7 +6,7 @@ import { generateUploadRapJson, tsTypeParse } from './tsTypeFileParse/index';
 import { requestFileParse } from './requestFileParse';
 import type { IOptions } from './mergeOptions'
 import { getFiles } from './../core/scanFile';
-import { updateFileContent } from './../utils'
+import { updateFileContent, promiseReadFile, getContentMd5 } from './../utils'
 // import { format } from 'json-schema-to-typescript/dist/src/formatter';
 // import { DEFAULT_OPTIONS } from 'json-schema-to-typescript';
 const spinner = ora(chalk.grey('开始扫描本地文件'));
@@ -16,19 +15,43 @@ spinner.start();
 // GET|POST|PUT|DELETE|OPTIONS|PATCH|HEAD
 // console.log(getFiles(path.resolve(__dirname, './../actions')));
 const typeFileJsonMap = {};
-// Blitzcrank  布里茨 机器人
+// Blitzcrank  布里茨 机器人、、
 
-function getModulesFetchParams(requestFile: string, config: IOptions) {
 
+function requestFileOrTypeFileIsChange(requestPath: string, allFileMap, importPath?: string):boolean {
+  const { oldMd5, newMd5 } = getContentMd5(allFileMap[requestPath])
+  if(oldMd5 && oldMd5 === newMd5) {
+    // 说明 请求文件是没有被改的
+    // 开始检查 依赖文件是否被修改
+    if(importPath) {
+      return requestFileOrTypeFileIsChange(importPath, allFileMap)
+    }
+    return false
+  }
+  return true
+}
+
+function getAllModule(
+  requestFile: {path: string, content: string},
+  allFileMap: Record<string, unknown>,
+  config: IOptions
+  ) {
+  if(!requestFile) return null
   const { importType, funcTypes, fileInfo } = requestFileParse(requestFile, config.upload.formatFunc, config);
   // 检查出来没有附符合的方法
   if(funcTypes.length === 0) return null
+
+  // 有咩有更改
+  const isChange = requestFileOrTypeFileIsChange(requestFile.path, allFileMap, importType.importPath)
+  if(!isChange) {
+    return null
+  }
+
   let { moduleId } = fileInfo
   const content = fileInfo.content
   let newContent = ''
     // 如果返回
     // outputFile.content = format(content, DEFAULT_OPTIONS)
-
     // 要不要 把 请求全部内敛进来
     const execute =  async () => {
       const verifyFetchParams = funcTypes.filter(e => {
@@ -56,8 +79,8 @@ function getModulesFetchParams(requestFile: string, config: IOptions) {
             const { id: modId } = await createModule({
               description: fileInfo.fileName,
               name: fileInfo.fileName,
-              repositoryId: config.rap.repositoryId
-            }, config.rap.apiUrl, config.rap.tokenCookie)
+              repositoryId: config.rapper.repositoryId
+            }, config.rapper.apiUrl, config.rapper.tokenCookie)
             //  修改 content
 
             newContent = `/* Rap仓库ModuleId: ${modId} */ \n` + (newContent ||content)
@@ -74,8 +97,8 @@ function getModulesFetchParams(requestFile: string, config: IOptions) {
               }
           });
           const containInter = await Promise.all(noInterface.map(async e => {
-
             let interfaceName = e.funcName
+
             if(e.comment) {
               const commentMatch = e.comment.match(/\s*\/\/\s*([\s|\S]+)$/)
               if (commentMatch) {
@@ -88,8 +111,8 @@ function getModulesFetchParams(requestFile: string, config: IOptions) {
              method: e.reqMethod,
              description: e.funcName,
              moduleId,
-             repositoryId: config.rap.repositoryId
-           }, config.rap.apiUrl, config.rap.tokenCookie)
+             repositoryId: config.rapper.repositoryId
+           }, config.rapper.apiUrl, config.rapper.tokenCookie)
              e.interfaceId = result.itf.id
             //  修改 content
           //  注释
@@ -104,7 +127,7 @@ function getModulesFetchParams(requestFile: string, config: IOptions) {
            newContent = (newContent || content).replace(bodyReg,
 `/**
 * 接口名：${interfaceName}
-* Rap 地址: ${config.rap.rapUrl}/repository/editor?id=${config.rap.repositoryId}&mod=${moduleId}&itf=${e.interfaceId}
+* Rap 地址: ${config.rapper.rapUrl}/repository/editor?id=${config.rapper.repositoryId}&mod=${moduleId}&itf=${e.interfaceId}
 */
 $1`
 )
@@ -119,30 +142,31 @@ $1`
           }
           throw error
         }
-        if(newContent) {
-          await updateFileContent(fileInfo.filePath, newContent)
-        }
       // console.log('开始更接口', containInterface)
       await Promise.all(
         // 有问题了
-        containInterface.map(el =>{
+        containInterface.map(async el =>{
           if (!typeFileJsonMap[importType.importPath]) {
-            typeFileJsonMap[importType.importPath] = tsTypeParse(
-              path.resolve(__dirname, importType.importPath),
-            );
+            typeFileJsonMap[importType.importPath] = tsTypeParse(importType.importPath);
           }
-          const properties =  generateUploadRapJson(
+          const properties = generateUploadRapJson(
             typeFileJsonMap[importType.importPath],
             el.interfaceId,
             el.resTypeName,
             el.reqTypeName,
           );
-          return updateInterface({
+          const result = await updateInterface({
             id: el.interfaceId,
             properties
-          }, config.rap.apiUrl, config.rap.tokenCookie)
+          }, el.funcName, config.rapper.apiUrl, config.rapper.tokenCookie)
+          // console.log(Object.keys(allFileMap), '====' ,importType.importPath)
+          await updateFileContent(importType.importPath, allFileMap[importType.importPath])
+          return result
         })
       );
+      if(newContent) {
+        await updateFileContent(fileInfo.filePath, newContent)
+      }
 
       return containInterface.length
     }
@@ -154,23 +178,30 @@ $1`
     }
 }
 
-
-
-
-function getFileInterface(config: IOptions) {
-  const allFile = getFiles(config.rap.rapperPath);
+async function getFileInterface(config: IOptions) {
+  const allFile = getFiles(config.rapper.matchDir);
   spinner.succeed(chalk.green(`共扫描到${allFile.length}个文件`));
 
   spinner.start(chalk.grey(`开始分析有效文件`));
 
-  const allModule = allFile
+  // 生成依赖图
+  const readAllFile = allFile
     .map(filePath => {
       const extName = path.extname(filePath);
       if (!['.ts', '.js', '.vue', '.es'].includes(extName)) {
         return null
       }
-      return getModulesFetchParams(filePath, config);
+      return promiseReadFile(filePath);
     })
+
+    const allFileContent = await Promise.all(readAllFile)
+    const allFileMap = allFileContent.reduce((c,n) => {
+      if(n) {
+        c[n.path] = n.content
+      }
+      return c
+    }, {})
+    const effectiveFile = allFileContent.map(file => getAllModule(file, allFileMap, config))
     .filter(e => {
       if (!e) {
         return false;
@@ -183,25 +214,27 @@ function getFileInterface(config: IOptions) {
           return false;
         }
       }
+
       return true;
     });
 
-  const updateInterfaces = allModule.map((el) => {
+  const updateInterfaces = effectiveFile.map((el) => {
     return el.execute
-  }, []);
+  });
 
   // 数据统计 必须要有的 先放一下
-  spinner.succeed(chalk.green(`将要提交${allModule.length}个模块`));
+  if(effectiveFile.length !== 0) {
+    spinner.succeed(chalk.green(`将要提交${effectiveFile.length}个模块`));
+  }
   return updateInterfaces;
 }
 
 export default  async function uploadType(config: IOptions) {
-spinner.succeed(chalk.grey('开始扫描本地文件'));
-  // try {
-    // console.log(path.resolve(__dirname, config.upload.matchDir))
-    const fetchParams = getFileInterface(config);
+  spinner.succeed(chalk.grey('开始扫描本地文件'));
+  try {
+    const fetchParams = await getFileInterface(config);
     if(fetchParams.length === 0 ) {
-      spinner.fail('没有可提交接口');
+      spinner.info('没检查到有文件变更');
       return
     }
     spinner.start(chalk.grey(`开始同步到远程文档`));
@@ -209,7 +242,7 @@ spinner.succeed(chalk.grey('开始扫描本地文件'));
     const total = counts.reduce((c,n) =>c + n, 0)
     spinner.succeed(chalk.green(`一共更新了${total}个接口`));
     spinner.succeed(chalk.grey('提交成功'));
-  // } catch (err) {
-  //   spinner.fail(chalk.red(`同步失败！${err}`));
-  // }
+  } catch (err) {
+    spinner.fail(chalk.red(`同步失败！${err}`));
+  }
 }

@@ -38,11 +38,8 @@ function generateRapJson(
   // in 什么都能循环
   const obj = currentDefinitions;
   const isObject = obj?.type === 'object';
-  //
   const properties = isObject ? obj.properties : obj.items.properties;
-
   const required = (isObject ? obj.required : obj.items.required) || [];
-
   for (const key in properties) {
     let element = properties[key];
     if (element['$ref']) {

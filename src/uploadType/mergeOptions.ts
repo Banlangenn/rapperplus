@@ -67,15 +67,15 @@ function completionOptions(options:IOptions = {download: {}, upload: {}}) {
           };
         },
       },
-      rap: {
+      rapper: {
         // 拉取接口地址
         apiUrl:
           'http://rap2api.taobao.org/repository/get?id=284428&token=TTDNJ7gvXgy9R-9axC-7_mbi4ZxEPlp6',
         /** rap 前端地址，默认是 http://rap2.taobao.org */
         rapUrl: 'http://rap2.taobao.org',
-        rapperPath: './src/actions',
+        matchDir: './src/actions',
         tokenCookie:
-        'aliyungf_tc=ed5eefe153b8cd6d7a9b0ea3f4aaaa92eaf022825c19857a2b435978264d17d8; koa.sid=oH6bicTb16BOTnZO7fFRBC3rEZ7vE1VI; koa.sid.sig=i_5lxqH54ByrLD8fNo_uhMyjR4c',
+        'aliyungf_tc=f3a5915db08fc3b6de3ec5df0d0b3a5dc07c0b701e44cf4bf98a855799570bfe; koa.sid=ybwqSKr_-P1aSkmEH35jsRLO_8gruqcu; koa.sid.sig=SIL-kHUX7sz4pDh-ZiJFCixKdE0',
         repositoryId: 284428,
       },
       upload: {
@@ -113,10 +113,12 @@ function completionOptions(options:IOptions = {download: {}, upload: {}}) {
         ...(options.upload || {}),
         ...defaultOptions.upload
     }
-    _options.rap = {
+    _options.rapper = {
       ...(options.upload || {}),
-      ...defaultOptions.rap
+      ...defaultOptions.rapper
   }
+
+  _options.__completion = true
 
     const rootPath = searchRootPath()
     if(!rootPath) {
@@ -124,19 +126,20 @@ function completionOptions(options:IOptions = {download: {}, upload: {}}) {
     }
   
     // _options.upload.matchDir = path.resolve(rootPath, _options.upload.matchDir)
-    _options.rap.rapperPath = path.resolve(rootPath, _options.rap.rapperPath)
+    _options.rapper.matchDir = path.resolve(rootPath, _options.rapper.matchDir)
     const alias = _options.upload.alias
     for(const v in alias) {
       _options.upload.alias.v = path.resolve(rootPath, alias[v])
     }
+    
     return _options
 }
 
 // 文件缓存  增速
 
 
-export interface IOptions {
-    download?: {
+interface IConfig {
+    download: {
         requestFunc?: (params: {
             funcDescription: string;
             repositoryId: number;
@@ -161,24 +164,31 @@ export interface IOptions {
         };
         moduleId?: number;
     }
-    rap?: {
+    rapper: {
       // 拉取接口地址
       apiUrl?: string;
       /** rap 前端地址，默认是 http://rap2.taobao.org */
-      rapUrl?:string;
-      rapperPath?: string;
+      rapUrl?: string;
+      matchDir?: string;
       tokenCookie?:string;
       repositoryId?: number,
     },
-     upload?: {
+     upload: {
         formatFunc?: (params: IFuncInfo) => ITypeName;
         moduleId?: number;
         alias?: Record<string, string>;
     }
+    __completion?: boolean
 }
 
+
+export type IOptions = Partial<IConfig>
+
 export  default function defineConfig(options: IOptions) {
-    return  completionOptions(options)
+    if(options.__completion) {
+      return options
+    }
+    return completionOptions(options)
 }
 
 

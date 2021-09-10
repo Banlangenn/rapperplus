@@ -4,6 +4,8 @@ import * as path from 'path';
 import * as ts from 'typescript';
 import type { IOptions } from './../mergeOptions'
 import { getRapModuleId } from './../../utils'
+import { forIn } from '_@types_lodash@4.14.172@@types/lodash';
+import { realpath } from 'fs';
 
 function isNodeExported(node: ts.Node): boolean {
   return (
@@ -11,6 +13,17 @@ function isNodeExported(node: ts.Node): boolean {
     (!!node.parent && node.parent.kind === ts.SyntaxKind.SourceFile)
   );
 }
+
+function getRealPath(importPath, alias) {
+  for(const item in alias) {
+    const aliasReg = new RegExp(`^${item}`)
+    if(aliasReg.test(importPath)) {
+      return importPath.replace(aliasReg, alias[item])
+    }
+  }
+  return null
+}
+
 interface IImportTypes {
   importPath: string;
   importNames: string[];
@@ -50,17 +63,14 @@ function getAllLeadingComments(node: ts.Node, sourceFile: ts.SourceFile):
   return allRanges;
 }
 export function requestFileParse(
-  filePath: string,
+  file: {path: string, content: string},
   formatFunc: (params: IFuncInfo) => ITypeName,
   config: IOptions,
 ) {
-  const program = ts.createProgram([filePath], { allowJs: false, noResolve: true,
-    target: ts.ScriptTarget.Latest, });
-  const sourceFile = program.getSourceFile(filePath);
-// console.log(sourceFile.getText(sourceFile), 'sourceFile')
-  const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
-  // 文件内容
-  const content = printer.printFile(sourceFile)
+  const {path: filePath, content} = file
+  const sourceFile = ts.createSourceFile(filePath, content, ts.ScriptTarget.Latest);
+  // const sourceFile = program.getSourceFile(filePath);
+  // console.log(sourceFile.getText(sourceFile), 'sourceFile')
   // 引入的 TypeOnly 文件
   // 文件名称  文件路径
   const importTypes: IImportTypes[] = [];
@@ -90,15 +100,22 @@ export function requestFileParse(
           // console.log(node.getText(sourceFile));
           importType.importNames.push(node.getText(sourceFile));
         });
-        const importPath = node.moduleSpecifier.getText(sourceFile);
-        const absolutePath = path.resolve(
+        const importPath = node.moduleSpecifier.getText(sourceFile).replace(/["']/g, '')
+        let absolutePath = path.resolve(
           __dirname,
           filePath,
           '..',
-          importPath.replace(/["']/g, ''),
+          importPath,
         );
+
+        if(config.upload.alias) {
+          const realPath = getRealPath(importPath, config.upload.alias)
+          if(realPath) {
+            absolutePath = realPath
+          }
+        }
+
         node.moduleSpecifier.getText(sourceFile);
-      
         importType.importPath = /ts$/.test(absolutePath) ? absolutePath : absolutePath + '.ts'
         node.moduleSpecifier.getText(sourceFile);
       }
