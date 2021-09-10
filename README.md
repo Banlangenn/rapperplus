@@ -217,8 +217,3 @@ export interface IOptions {
         matchDir: './src/actions',
       }
     }
-<<<<<<< HEAD
-```
-=======
-```
->>>>>>> b636aa558271910e8e02a1a1b6e2dee3058e93a6

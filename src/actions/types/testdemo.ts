@@ -1,12 +1,6 @@
 /* md5: e8f35813847faeb59c5f850a1d53f247 */
 /* eslint-disable */
-
-/**
- * 接口名：获取商户列表
- * Rap 地址: http://rap2.taobao.org/repository/editor?id=284428&mod=474869&itf=2066499
- * 
- */
-export type aa = {
+export type IReqGoodsQbf = {
   age: string
   sex?: string
   /**
@@ -60,10 +54,6 @@ export type IResGoodsQbf = {
   code: number
 }
 
-/**
- * 接口名：2接口
- * Rap 地址: http://rap2.taobao.org/repository/editor?id=284428&mod=474869&itf=2066668
- */
 export type IReqGoodsAudit = Record<string, unknown>
 export type IResGoodsAudit = {
   cb: string
