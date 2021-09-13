@@ -4,8 +4,6 @@ import * as path from 'path';
 import * as ts from 'typescript';
 import type { IOptions } from './../mergeOptions'
 import { getRapModuleId } from './../../utils'
-import { forIn } from '_@types_lodash@4.14.172@@types/lodash';
-import { realpath } from 'fs';
 
 function isNodeExported(node: ts.Node): boolean {
   return (
@@ -176,11 +174,17 @@ export function requestFileParse(
     // 把 body 重新赋值上去，放在内部  避免 config  设置无用字段 
     if(data) {
       const { body, funcName, comment} = exportInterfaceFunc[index]
+      const matchReq = data.reqTypeName.match(/^(\w+)\[['|"]request['|"]\]/)
+      const matchRes = data.resTypeName.match(/^(\w+)\[['|"]response['|"]\]/)
+      const reqTypeName = matchReq ? [matchReq[1], 'request']: data.reqTypeName
+      const resTypeName = matchRes ? [matchRes[1], 'response']: data.resTypeName
       return {
         ...data,
         body,
         funcName,
-        comment
+        comment,
+        resTypeName,
+        reqTypeName
       }
     }
     return null

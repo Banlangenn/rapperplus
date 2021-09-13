@@ -75,19 +75,19 @@ function completionOptions(options:IOptions = {download: {}, upload: {}}) {
         rapUrl: 'http://rap2.taobao.org',
         matchDir: './src/actions',
         tokenCookie:
-        'aliyungf_tc=f3a5915db08fc3b6de3ec5df0d0b3a5dc07c0b701e44cf4bf98a855799570bfe; koa.sid=ybwqSKr_-P1aSkmEH35jsRLO_8gruqcu; koa.sid.sig=SIL-kHUX7sz4pDh-ZiJFCixKdE0',
+        'aliyungf_tc=f3a5915db08fc3b6de3ec5df0d0b3a5dc07c0b701e44cf4bf98a855799570bfe; koa.sid=Pr5cU5_rIPD3ZbY7sWEiJae2QVg9snsl; koa.sid.sig=LXWqOYImZhdiNsczV84wTj1lmOA',
         repositoryId: 284428,
       },
       upload: {
 
         formatFunc(params) {
           // createFetch<IReqGoodsQbf, IResGoodsQbf>('/c/api/1.0/approve/goods/qbf', 'GET')
-          const[_, reqTypeName, resTypeName, reqUrl, reqMethod]  = params.body.match(/createFetch<(\w+),\s+(\w+)>\(['|"]([\s|\S]+)['|"], ['|"]([a-zA-Z]+)['|"]\)/)
-
+          // export const goodsQbf = createFetch<IGoodsQbf['request'], IGoodsQbf['response']>("/c/api/1.0/approve/goods/qbf", "GET");
+          const[_, reqTypeName, resTypeName, reqUrl, reqMethod] = params.body.match(/createFetch<([\w\[\]'"]+),\s+([\w\[\]'"]+)>\(['"]([\s\S]+)['"], ['"]([a-zA-Z]+)['"]\)/) || []
           if(!reqTypeName || !resTypeName){
             return null
           }
-          const matchInterfaceId= params.comment.match(/http:\/\/rap2\.tao[\s\S]+&itf=(\d+)/)
+          const matchInterfaceId = params.comment.match(/http:\/\/rap2\.tao[\s\S]+&itf=(\d+)/)
           return {
             resTypeName,
             reqTypeName,

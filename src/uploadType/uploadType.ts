@@ -16,8 +16,6 @@ spinner.start();
 // console.log(getFiles(path.resolve(__dirname, './../actions')));
 const typeFileJsonMap = {};
 // Blitzcrank  布里茨 机器人、、
-
-
 function requestFileOrTypeFileIsChange(requestPath: string, allFileMap, importPath?: string):boolean {
   const { oldMd5, newMd5 } = getContentMd5(allFileMap[requestPath])
   if(oldMd5 && oldMd5 === newMd5) {
@@ -55,10 +53,17 @@ function getAllModule(
     // 要不要 把 请求全部内敛进来
     const execute =  async () => {
       const verifyFetchParams = funcTypes.filter(e => {
-        if(importType.importNames.includes(e.reqTypeName)&&importType.importNames.includes(e.resTypeName)) {
+        const { reqTypeName, resTypeName } = e
+        // 怎么 支持混写
+        const reqIsArray = Array.isArray(reqTypeName)
+        const reqName = reqIsArray ? reqTypeName[0] : reqTypeName
+        const resIsArray = Array.isArray(resTypeName)
+        const resName =  resIsArray ? resTypeName[0] : resTypeName
+        // 有一个出问题  就退出
+        if(importType.importNames.includes(reqName) && importType.importNames.includes(resName)) {
           return true
         }
-        console.log(`导出的 ${importType.importNames}文件内[${e.reqTypeName}, ${e.resTypeName}] 没有这个接口, 同步将会忽略掉`)
+        console.log(`${importType.importPath.replace(/^[\s|\S]+\/src/, 'src')}文件内[${reqTypeName}] 或 [${resTypeName}] 没有这个接口, 同步将会忽略掉`)
         return false
       })
       // 有模块请求 创建模块请求
@@ -68,8 +73,8 @@ function getAllModule(
         funcName: string;
         interfaceId?: number;
         body: string;
-        resTypeName: string;
-        reqTypeName: string;
+        resTypeName: string|string[];
+        reqTypeName: string|string[];
         comment: string;
       }
       const containInterface: ICreateInterface[] = []
@@ -115,21 +120,20 @@ function getAllModule(
            }, config.rapper.apiUrl, config.rapper.tokenCookie)
              e.interfaceId = result.itf.id
             //  修改 content
-          //  注释
+            //  注释
 
           if(interfaceName !== e.funcName) {
-            const commentReg = new RegExp(`(${e.comment.replace(/([()])/g,'\\$1')})`)
+            const commentReg = new RegExp(`(${e.comment.replace(/([()\[\]])/g,'\\$1')})`)
             newContent = (newContent || content).replace(commentReg, '')
           }
-
-       
-           const bodyReg = new RegExp(`(${e.body.replace(/([()])/g,'\\$1')})`)
+           const bodyReg = new RegExp(`(\\n*)(${e.body.replace(/([()\[\]])/g,'\\$1')})`)
            newContent = (newContent || content).replace(bodyReg,
-`/**
+`\n
+/**
 * 接口名：${interfaceName}
 * Rap 地址: ${config.rapper.rapUrl}/repository/editor?id=${config.rapper.repositoryId}&mod=${moduleId}&itf=${e.interfaceId}
 */
-$1`
+$2`
 )
             // interface 第一行的位置
             return e
@@ -231,7 +235,7 @@ async function getFileInterface(config: IOptions) {
 
 export default  async function uploadType(config: IOptions) {
   spinner.succeed(chalk.grey('开始扫描本地文件'));
-  try {
+  // try {
     const fetchParams = await getFileInterface(config);
     if(fetchParams.length === 0 ) {
       spinner.info('没检查到有文件变更');
@@ -242,7 +246,7 @@ export default  async function uploadType(config: IOptions) {
     const total = counts.reduce((c,n) =>c + n, 0)
     spinner.succeed(chalk.green(`一共更新了${total}个接口`));
     spinner.succeed(chalk.grey('提交成功'));
-  } catch (err) {
-    spinner.fail(chalk.red(`同步失败！${err}`));
-  }
+  // } catch (err) {
+  //   spinner.fail(chalk.red(`同步失败！${err}`));
+  // }
 }

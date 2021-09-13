@@ -29,11 +29,7 @@ function generateRapJson(
   scope: 'request' | 'response',
   parentId: number | string,
   interfaceId: number,
-  name: string,
 ) {
-  if (!currentDefinitions) {
-    throw new Error(`${name} 出现了一个错误，类型未找到`);
-  }
   const ifs = [];
   // in 什么都能循环
   const obj = currentDefinitions;
@@ -76,35 +72,40 @@ function generateRapJson(
     ifs.push(ifItem);
     IDX++;
     if (element.type === 'object' || element.type === 'array') {
-      ifs.push(...generateRapJson(definitions, element, scope, id, interfaceId, key));
+      ifs.push(...generateRapJson(definitions, element, scope, id, interfaceId));
     }
   }
   return ifs;
 }
 
+function getProperties(data: Record<string, unknown>, namePath: string[] | string) {
+  const _namePath = Array.isArray(namePath) ? namePath : [namePath];
+  return _namePath.reduce((curr = {}, next) => {
+    const result = curr.properties[next];
+    return result;
+  }, data);
+}
+
 export function generateUploadRapJson(
   schema: TJS.Definition,
   interfaceId: number,
-  responseTypeName: string,
-  requestTypeName: string,
+  responseTypeName: string | string[],
+  requestTypeName: string | string[],
 ) {
   const parentId = -1;
   IDX = 1;
+  const rootProperties = { properties: schema.definitions };
+  const reqProperties = getProperties(rootProperties, requestTypeName);
+  const resProperties = getProperties(rootProperties, responseTypeName);
+  // console.log(resProperties, '===\n===', reqProperties);
+  if (!resProperties || !reqProperties) {
+    throw new Error(`[${requestTypeName}] 或 [${responseTypeName}]出现了一个错误，类型未找到`);
+  }
   return generateRapJson(
     schema.definitions,
-    schema.definitions[responseTypeName],
-    'response',
+    reqProperties,
+    'request',
     parentId,
     interfaceId,
-    responseTypeName,
-  ).concat(
-    generateRapJson(
-      schema.definitions,
-      schema.definitions[requestTypeName],
-      'request',
-      parentId,
-      interfaceId,
-      requestTypeName,
-    ),
-  );
+  ).concat(generateRapJson(schema.definitions, resProperties, 'response', parentId, interfaceId));
 }
