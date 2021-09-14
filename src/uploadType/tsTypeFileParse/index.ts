@@ -3,7 +3,7 @@ import * as TJS from 'typescript-json-schema';
 const settings = {
   required: true,
   comments: true,
-  validationKeywords: ['value', 'rule'],
+  validationKeywords: ['value', 'rule', 'url', 'method', 'rapUrl'],
 };
 const compilerOptions = {
   strictNullChecks: true,
@@ -14,13 +14,21 @@ const compilerOptions = {
 // const program = TJS.getProgramFromFiles([path.join(__dirname, typeFile)], compilerOptions, './');
 // const schema = TJS.generateSchema(program, '*', settings);
 
+function getGeneric(definitions: any, genericName: string) {
+  const element = genericName.replace(/^#\//, '').split('/');
+
+  element.shift();
+
+  return element.reduce((c, n) => {
+    return c[n];
+  }, definitions);
+}
 export function tsTypeParse(file: string) {
   const program = TJS.getProgramFromFiles([file], compilerOptions, './');
   return TJS.generateSchema(program, '*', settings);
 }
-let IDX = 1;
-// const ifs = []
 
+let IDX = 1;
 function generateRapJson(
   definitions: {
     [key: string]: any;
@@ -32,22 +40,19 @@ function generateRapJson(
 ) {
   const ifs = [];
   // in 什么都能循环
-  const obj = currentDefinitions;
+  const obj = currentDefinitions['$ref']
+    ? getGeneric(definitions, currentDefinitions['$ref'])
+    : currentDefinitions;
   const isObject = obj?.type === 'object';
   const properties = isObject ? obj.properties : obj.items.properties;
   const required = (isObject ? obj.required : obj.items.required) || [];
+
+  // 上来就是ref
   for (const key in properties) {
     let element = properties[key];
     if (element['$ref']) {
       // 有泛型
-      const genericName = element['$ref'];
-      element = genericName.replace(/^#\//, '').split('/');
-
-      element.shift();
-
-      element = element.reduce((c, n) => {
-        return c[n];
-      }, definitions);
+      element = getGeneric(definitions, element['$ref']);
     }
     // 第一层肯定是一个obk
     const id = `$memory-${IDX}`;
@@ -98,6 +103,8 @@ export function generateUploadRapJson(
   const reqProperties = getProperties(rootProperties, requestTypeName);
   const resProperties = getProperties(rootProperties, responseTypeName);
   // console.log(resProperties, '===\n===', reqProperties);
+  // console.log(reqProperties, 'requestTypeName:', requestTypeName);
+  // console.log(resProperties, 'responseTypeName:', responseTypeName);
   if (!resProperties || !reqProperties) {
     throw new Error(`[${requestTypeName}] 或 [${responseTypeName}]出现了一个错误，类型未找到`);
   }

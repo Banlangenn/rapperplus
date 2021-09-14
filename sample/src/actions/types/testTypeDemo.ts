@@ -1,10 +1,38 @@
-/* md5: 90443039f827fe3db49ae4733fd43832 */
+/* md5: 2ae460c356e8919f569dc32949752592 */
+/* Rap仓库ModuleId: 477847 */
+
+interface XY {
+  x: number;
+  y: number;
+}
+
+interface Shape {
+  size: number;
+}
+
+interface Circle {
+  shape: Shape;
+  point: XY;
+  radius: number;
+}
+
+type IGetRES<T> = {
+  data: T;
+  success: boolean;
+};
+
+/**
+ * 我是描述
+ * @url /c/b/w/api/1.0/user
+ * @method GET
+ * @rapUrl  http://rap2.taobao.org/repository/editor?id=284428&mod=477847&itf=2081705
+ */
 export type IGoodsQbf = {
   request: {
     age: string;
     sex?: string;
     /**
-     * 新加的 c
+     * 新加的
      */
     goods?: {
       arr: {
@@ -35,7 +63,7 @@ export type IGoodsQbf = {
          */
         name: string;
         /**
-         * 年纪
+         * 年纪er
          * @value /@increment(10)
          */
         age: string;
@@ -55,8 +83,15 @@ export type IGoodsQbf = {
 };
 
 export type IReqGoodsAudit = Record<string, unknown>;
+/**
+ * 我是描述
+ * @url /c/b/w/api/1.0/user/6
+ * @method POST
+ * @rapUrl  http://rap2.taobao.org/repository/editor?id=284428&mod=477847&itf=2081706
+ */
 export type IResGoodsAudit = {
-  cb: string;
+  request: Circle;
+  response: IGetRES<Circle>;
 };
 
 // 怎么把 success 去掉

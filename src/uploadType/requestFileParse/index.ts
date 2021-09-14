@@ -174,10 +174,10 @@ export function requestFileParse(
     // 把 body 重新赋值上去，放在内部  避免 config  设置无用字段 
     if(data) {
       const { body, funcName, comment} = exportInterfaceFunc[index]
-      const matchReq = data.reqTypeName.match(/^(\w+)\[['|"]request['|"]\]/)
-      const matchRes = data.resTypeName.match(/^(\w+)\[['|"]response['|"]\]/)
-      const reqTypeName = matchReq ? [matchReq[1], 'request']: data.reqTypeName
-      const resTypeName = matchRes ? [matchRes[1], 'response']: data.resTypeName
+      const matchReq = data.reqTypeName.match(/^(\w+)\[['|"](\w+)['|"]\]/)
+      const matchRes = data.resTypeName.match(/^(\w+)\[['|"](\w+)['|"]\]/)
+      const reqTypeName = matchReq ? [matchReq[1], matchReq[2]]: data.reqTypeName
+      const resTypeName = matchRes ? [matchRes[1], matchRes[2]]: data.resTypeName
       return {
         ...data,
         body,

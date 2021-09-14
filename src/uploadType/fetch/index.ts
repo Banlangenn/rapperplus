@@ -21,7 +21,9 @@ export function updateInterface(
     .then(e => {
       if (e.status !== 200) {
         if (e.status === 500) {
-          throw new Error(`接口更新失败，请检查：${funcName}对应的远程接口是不是删除了`);
+          throw new Error(
+            `接口更新失败，请检查：${funcName}(${params.id})对应的远程接口是不是删除了`,
+          );
         }
         throw new Error(e.statusText);
       }

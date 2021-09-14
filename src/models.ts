@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { rapper, defineConfig, uploadType } from './index';
+import { rapper, defineConfig, uploadType, typeUpload } from './index';
 import { resolve } from 'path';
 import { existsSync } from 'fs';
 import { searchRootPath } from './utils';
@@ -60,14 +60,19 @@ import * as program from 'commander';
     const rapperConfig = {
       apiUrl: program.apiUrl,
       rapUrl: program.rapUrl,
-      matchDir: program.rapperPath || config.rapper.matchDir,
+      rapperPath: program.rapperPath || config.rapper.rapperPath,
     };
     config.rapper = rapperConfig;
   }
 
+  const result = defineConfig(config);
   if (isUpload) {
-    rapper(defineConfig(config));
+    rapper(result);
   } else {
-    uploadType(defineConfig(config));
+    if (result.upload.mode === 'type') {
+      typeUpload(result);
+    } else {
+      uploadType(result);
+    }
   }
 })();

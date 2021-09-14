@@ -19,11 +19,12 @@ export function getFiles(parentPath: string): string[] {
   if (parentPath.indexOf('/.') > -1 || parentPath.indexOf('node_modules') > -1) {
     return fileList;
   }
-
   let files = [];
   try {
     files = fs.readdirSync(parentPath);
-  } catch (err) {}
+  } catch (err) {
+    throw new Error('文件夹不存在，请检查config配置');
+  }
 
   files.forEach(item => {
     item = path.join(parentPath, item);
