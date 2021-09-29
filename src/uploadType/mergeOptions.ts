@@ -1,4 +1,4 @@
-import { IFuncInfo, ITypeName } from './requestFileParse';
+
 import * as path from 'path';
 import { searchRootPath } from './../utils';
 function completionOptions(options: IOptions = { download: {}, upload: {} }) {
@@ -85,6 +85,7 @@ function createFetch<REQ extends Record<string, unknown>, RES extends {data: any
       // fileRegex 将尝试使用绝对文件路径检测测试文件
       // (/__tests__/.*|(\\.|/)(test|spec))\\.[jt]sx?$
       fileRegex: './src/actions/types/.*(js|jsx|ts|tsx)',
+    
       formatFunc(params) {
         // createFetch<IReqGoodsQbf, IResGoodsQbf>('/c/api/1.0/approve/goods/qbf', 'GET')
         // export const goodsQbf = createFetch<IGoodsQbf['request'], IGoodsQbf['response']>("/c/api/1.0/approve/goods/qbf", "GET");
@@ -110,20 +111,24 @@ function createFetch<REQ extends Record<string, unknown>, RES extends {data: any
         '@': './src',
       },
     },
+    isUpload: true
   };
 
   const _options: IOptions = {};
   _options.download = {
-    ...(options.download || {}),
     ...defaultOptions.download,
+    ...(options.download || {}),
   };
   _options.upload = {
-    ...(options.upload || {}),
     ...defaultOptions.upload,
-  };
-  _options.rapper = {
     ...(options.upload || {}),
+  };
+  _options.isUpload = typeof _options.isUpload === 'boolean' ? 
+   _options.isUpload: defaultOptions.isUpload
+
+  _options.rapper = {
     ...defaultOptions.rapper,
+    ...(options.rapper || {}),
   };
 
   _options.__completion = true;
@@ -149,7 +154,16 @@ function createFetch<REQ extends Record<string, unknown>, RES extends {data: any
 // 文件缓存  增速
 
 interface IConfig {
+  // 下载配置
   download: {
+     /**
+       * 
+       * @param params   rap上填入接口的信息
+       * @returns 
+       * reqTypeName: request类型名称;
+       * resTypeName: response类型名称;
+       * funcMain: 请求函数体;
+       */
     requestFunc?: (params: {
       funcDescription: string;
       repositoryId: number;
@@ -163,6 +177,13 @@ interface IConfig {
       resTypeName: string;
       funcMain: string;
     };
+    /**
+       * 
+       * @param params   rap 上填入的module信息
+       * @returns 
+       * fileName: 模块的文件名称;
+       * moduleHeader: 模块头部的banner;
+       */
     requestModule?: (params: {
       repositoryId: number;
       moduleId: number;
@@ -172,6 +193,7 @@ interface IConfig {
       fileName: string;
       moduleHeader: string;
     };
+    // 自定下载的module
     moduleId?: number;
   };
   rapper: {
@@ -179,26 +201,57 @@ interface IConfig {
     apiUrl?: string;
     /** rap 前端地址，默认是 http://rap2.taobao.org */
     rapUrl?: string;
+    // 生成的文件目录地址
     rapperPath?: string;
+    // rap登录cookie
     tokenCookie?: string;
+    // rap项目id
     repositoryId?: number;
   };
   upload: {
     //  模式 type 文件扫描入口是type（需要编译生成fetch)
     //  fetch 文件扫描入口是fetch请求函数（不需要编译）
     mode?: 'type' | 'fetch';
+    // 需要解析的文件名称正则
     fileRegex?: string;
-    formatFunc?: (params: IFuncInfo) => ITypeName;
+      /**
+       * 
+       * @param params  函数信息 
+       * @returns 
+       *  resTypeName: request 类型名称;
+       * reqTypeName: response  类型名称;
+       * reqUrl: 请求 url;
+       * reqMethod: 请求method;
+       * interfaceId: 接口id;
+       */
+    formatFunc?: (params: {
+      funcName: string;
+      body: string;
+      comment: string;
+      // 三种函数 定义 会被选中到导出
+      funcType: 'CallExpression'| 'FunctionDeclaration'| 'ArrowFunction'
+    }) => {
+      resTypeName: string;
+      reqTypeName: string;
+      reqUrl: string;
+      reqMethod: string;
+      interfaceId: number;
+    } | null;
+    // 指定下载的 模块id
     moduleId?: number;
+    // webpack 别名
     alias?: Record<string, string>;
   };
+  // 内部标识使用 不用管
   __completion?: boolean;
+  // 是不是上传
+  isUpload: boolean;
 }
 
 export type IOptions = Partial<IConfig>;
 
-export default function defineConfig(options: IOptions) {
-  if (options.__completion) {
+export default function defineConfig(options: IOptions, completion = true) {
+  if (completion && options.__completion) {
     return options;
   }
   return completionOptions(options);

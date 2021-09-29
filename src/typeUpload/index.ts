@@ -63,14 +63,16 @@ async function getFileInterface(
   const interfaceContainer = [];
   let moduleId = getRapModuleId(content);
   let newContent;
-  let fetchContent = moduleId ? `/* Rap仓库ModuleId: ${moduleId} */ \n` : '';
-  fetchContent += config.download.requestModule({
+  let moduleHeader = config.download.requestModule({
     repositoryId: config.rapper.repositoryId,
     moduleId: moduleId,
     moduleRapUrl: ``,
     moduleDescription: fileName,
   }).moduleHeader;
+  moduleHeader = moduleId ? `/* Rap仓库ModuleId: ${moduleId} */ \n${moduleHeader}` : moduleHeader;
   const fetchContentPath = path.resolve(config.rapper.rapperPath, `./${fileName}.ts`);
+  let fetchContent = '';
+  const importTypeNames = [];
   try {
     for (const item in definitions) {
       const el = definitions[item];
@@ -93,7 +95,7 @@ async function getFileInterface(
           );
           //  修改 content
           const moduleIdStr = `/* Rap仓库ModuleId: ${modId} */ \n`;
-          fetchContent = moduleIdStr + fetchContent;
+          moduleHeader = moduleIdStr + moduleHeader;
           newContent = moduleIdStr + (newContent || content);
           moduleId = modId;
           // 如果 没有 moduleId  就认为这个文件新接口
@@ -124,6 +126,8 @@ async function getFileInterface(
             );
           });
         }
+
+        importTypeNames.push(item);
 
         fetchContent += `
 /**
@@ -172,7 +176,14 @@ export const ${item.charAt(0).toLowerCase()}${item.slice(1)}${fileName
     throw error;
   }
 
-  const writes: any[] = [writeFile(fetchContentPath, fetchContent)];
+  const writes: any[] = [
+    writeFile(
+      fetchContentPath,
+      `${moduleHeader}
+import type { ${importTypeNames.join(', ')} } from "@${filePath.replace(/(^[\s\S]+src)/, '')}";
+  ${fetchContent}`,
+    ),
+  ];
   if (newContent) {
     writes.push(updateFileContent(filePath, newContent));
   }

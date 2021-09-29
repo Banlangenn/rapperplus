@@ -19,9 +19,9 @@ import * as program from 'commander';
 
   program.parse(process.argv);
 
-  const isUpload: boolean = program.upload ? true : false;
-  const configName = 'rapper-Plus';
-  let config = defineConfig({});
+  const isUpload: boolean = program.download ? false : true;
+  const configName = 'rapper-plus';
+  let config = defineConfig({isUpload})
   const rootPath = searchRootPath();
 
   // 通过 命令行配置config
@@ -66,7 +66,8 @@ import * as program from 'commander';
   }
 
   const result = defineConfig(config);
-  if (isUpload) {
+  
+  if (!result.isUpload) {
     rapper(result);
   } else {
     if (result.upload.mode === 'type') {
